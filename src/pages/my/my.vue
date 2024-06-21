@@ -11,6 +11,14 @@ const getData = async () => {
   })
   console.log(res.result)
 }
+const quit = () => {
+  memberStore.clearProfile()
+  // navgator页面跳转login
+  console.log('退出登录')
+  uni.navigateTo({
+    url: '/pages/login/login',
+  })
+}
 </script>
 
 <template>
@@ -28,7 +36,7 @@ const getData = async () => {
     >
       保存用户信息
     </button>
-    <button @tap="memberStore.clearProfile()" size="mini" plain type="warn">清理用户信息</button>
+    <button @click="quit" size="mini" plain type="warn">清理用户信息</button>
     <button @click="getData" size="mini" plain type="warn">测试信息</button>
   </view>
 </template>
