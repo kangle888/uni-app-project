@@ -78,7 +78,6 @@
     "@dcloudio/vite-plugin-uni": "3.0.0-alpha-3081220230802001",
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/node": "^18.11.9",
-    "@types/vue": "^2.0.0",
     "@uni-helper/uni-app-types": "^0.5.8",
     "@uni-helper/uni-ui-types": "^0.5.14",
     "@vue/eslint-config-prettier": "^7.0.0",
