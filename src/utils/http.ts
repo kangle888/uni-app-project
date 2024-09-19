@@ -12,7 +12,7 @@ import { useMemberStore } from '@/stores'
  * 3. 添加小程序端请求头标识
  * 4. 添加token 请求头标识
  */
-const baseURL = 'https://pcapi-xiaotuxian-front-devtest.itheima.net'
+const baseURL = 'http://10.1.200.22:15000'
 
 // 添加请求前拦截器
 const httpInterceptor = {
