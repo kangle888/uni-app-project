@@ -64,16 +64,18 @@ import { onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 // 分享给好友
 onShareAppMessage(() => {
   return {
-    title: '动善时登录页面', // 分享标题
+    title: '动善时销售项目', // 分享标题
     path: '/pages/login/login', // 分享路径
+    imageUrl: '../../static/images/1.png', // 分享图片
   }
 })
 
 // 分享到朋友圈
 onShareTimeline(() => {
   return {
-    title: '动善时登录页面', // 分享标题
+    title: '动善时销售项目', // 分享标题
     query: '', // 可选：分享携带的参数
+    imageUrl: '../../static/images/1.png', // 分享图片
   }
 })
 
@@ -81,7 +83,7 @@ onMounted(() => {
   // 获取记住密码状态
   const res = rememberPasswordStore.getRememberPasswordStaus()
 
-  if (res.rememberPasswordStatus) {
+  if (res?.rememberPasswordStatus) {
     rememberPassword.value = res?.rememberPasswordStatus
     loginData.value.loginName = res?.username
     loginData.value.password = res?.password
@@ -127,7 +129,12 @@ const handleLogin = async () => {
     const res: any = await postLoginAPI(loginData.value)
     if (res?.code === 200) {
       console.log('登陆成功')
-      uni.showToast({ title: '登录成功', icon: 'success' })
+      // 存储 token
+      rememberPasswordStore.setToken(res?.data)
+      uni.showToast({
+        title: '登录成功',
+        icon: 'success',
+      })
       uni.switchTab({ url: '/pages/index/index' })
     } else {
       uni.showToast({ title: res?.msg, icon: 'none' })

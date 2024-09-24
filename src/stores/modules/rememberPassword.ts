@@ -7,6 +7,22 @@ export const useRememberPasswordStore = defineStore(
   () => {
     // 密码信息
     const profile = ref<any>()
+    const token = ref<any>()
+
+    // 存储 token 信息
+    const setToken = (val: any) => {
+      token.value = val
+    }
+
+    // 获取 token 信息
+    const getToken = () => {
+      return token.value
+    }
+
+    // 清除 token 信息
+    const clearToken = () => {
+      token.value = undefined
+    }
 
     // 保存密码信息，登录时使用
     const setPassword = (val: any) => {
@@ -26,6 +42,10 @@ export const useRememberPasswordStore = defineStore(
     // 记得 return
     return {
       profile,
+      token,
+      setToken,
+      clearToken,
+      getToken,
       setPassword,
       clearPassword,
       getRememberPasswordStaus,

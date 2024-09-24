@@ -31,12 +31,12 @@ const httpInterceptor = {
       'source-client': 'miniapp',
     }
     // 4. 添加token 请求头标识
-    const menberStore = useRememberPasswordStore()
-    const token = menberStore.profile?.token
+    const menmberStore = useRememberPasswordStore()
+    const token = menmberStore.getToken()
     if (token) {
       options.header = {
         ...options.header,
-        Authorization: `Bearer ${token}`,
+        TOKEN: token,
       }
     }
   },
@@ -52,7 +52,7 @@ uni.addInterceptor('uploadFile', httpInterceptor)
  *
  */
 interface Data<T> {
-  code: string
+  code: number
   msg: string
   data: T
 }
@@ -65,13 +65,17 @@ export const http = <T>(options: UniApp.RequestOptions) => {
     uni.request({
       ...options,
       success: (res) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
+        if (
+          (res.data as Data<T>).code >= 200 &&
+          (res.data as Data<T>).code < 300
+        ) {
           // 3. 请求成功
           resolve(res.data as Data<T>)
-        } else if (res.statusCode === 401) {
+        } else if ((res.data as Data<T>).code === 401) {
           // 4. 401 未授权 -> 清理用户信息 -> 跳转登录页
           const menberStore = useRememberPasswordStore()
           menberStore.clearPassword()
+          menberStore.clearToken()
           uni.navigateTo({ url: '/pages/login/login' })
           reject(res) // 标记失败
         } else {

@@ -62,16 +62,18 @@ onPullDownRefresh(() => {
 // 分享给好友
 onShareAppMessage(() => {
   return {
-    title: '动善时Dashboard', // 分享标题
+    title: '动善时销售项目', // 分享标题
     path: '/pages/index/index', // 分享路径
+    imageUrl: '../../static/images/1.png', // 分享图片
   }
 })
 
 // 分享到朋友圈
 onShareTimeline(() => {
   return {
-    title: '动善时Dashboard', // 分享标题
+    title: '动善时销售项目', // 分享标题
     query: '', // 可选：分享携带的参数
+    imageUrl: '../../static/images/1.png', // 分享图片
   }
 })
 

@@ -5,8 +5,13 @@
 </template>
 
 <script setup lang="ts">
+import { useRememberPasswordStore } from '@/stores/modules/rememberPassword'
+
+const rememberPasswordStore = useRememberPasswordStore()
+
 const handleLoginOut = () => {
   console.log('退出登录')
+  rememberPasswordStore.clearToken()
   uni.navigateTo({
     url: '/pages/login/login',
   })
