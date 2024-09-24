@@ -11,41 +11,32 @@
   "pages": [
     //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
     {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "enableShareAppMessage": true, // 启用分享功能
+        "enableShareTimeline": true // 启用分享到朋友圈
+      }
+    },
+
+    {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "Dashboard"
+        "navigationBarTitleText": "Dashboard",
+        "enableShareAppMessage": true, // 启用分享功能
+        "enableShareTimeline": true, // 启用分享到朋友圈
+        "enablePullDownRefresh": true // 启用下拉刷新
       }
     },
     {
       "path": "pages/sale/sale",
       "style": {
-        "navigationBarTitleText": "销售项目"
+        "navigationBarTitleText": "销售项目",
+        "enableShareAppMessage": true, // 启用分享功能
+        "enableShareTimeline": true, // 启用分享到朋友圈
+        "enablePullDownRefresh": true // 启用下拉刷新
       }
     }
-    // {
-    //   "path": "pages/cart/cart",
-    //   "style": {
-    //     "navigationBarTitleText": "购物车"
-    //   }
-    // }
-    // {
-    //   "path": "pages/category/category",
-    //   "style": {
-    //     "navigationBarTitleText": "分类"
-    //   }
-    // },
-    // {
-    //   "path": "pages/login/login",
-    //   "style": {
-    //     "navigationBarTitleText": "登录"
-    //   }
-    // },
-    // {
-    //   "path": "pages/hot/hot",
-    //   "style": {
-    //     "navigationBarTitleText": "热门推荐"
-    //   }
-    // }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

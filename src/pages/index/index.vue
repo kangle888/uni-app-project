@@ -1,72 +1,122 @@
 <template>
   <!-- 使用 canvas 元素来渲染图表 -->
-  <view class="top-title">KA装机量</view>
-
-  <view class="charts-box">
+  <div class="top-title">KA装机量</div>
+  <div class="charts-box">
     <qiun-data-charts type="line" :opts="opts" :chartData="chartData" />
-  </view>
-
-  <view class="top-title">KA项目</view>
-  <view class="bottom-area">
+  </div>
+  <div class="top-title">KA项目</div>
+  <div class="bottom-area">
     <img
       class="img"
       src="../../static/images/KA项目背景.png"
       alt=""
       srcset=""
     />
-    <view class="show-data">
-      <view class="left">
-        <view class="left-img">
+    <div class="show-data">
+      <div class="left">
+        <div class="left-img">
           <img class="img2" src="../../static/images/时间ico.svg" alt="" />
-        </view>
-        <view class="list-item" v-for="(item, index) in kaList1" :key="index">
-          <span class="item-id">{{ index + 1 }}</span>
+        </div>
+        <div class="list-item" v-for="(item, index) in kaList1" :key="index">
+          <span class="item-id">
+            {{ (index + 1).toString().padStart(2, '0') }}</span
+          >
           <span>{{ item.code }}</span>
-        </view>
-      </view>
-      <view class="center"></view>
-      <view class="right">
-        <view class="right-img">
+        </div>
+      </div>
+      <div class="center"></div>
+      <div class="right">
+        <div class="right-img">
           <img class="img3" src="../../static/images/钱包ico.png" alt="" />
-        </view>
-        <view class="list-item">
-          <span class="item-id">1</span>
-          <span>JRJ</span>
-        </view>
-      </view>
-    </view>
-  </view>
+        </div>
+        <div class="list-item" v-for="(item, index) in kaList2" :key="index">
+          <span class="item-id">
+            {{ (index + 1).toString().padStart(2, '0') }}</span
+          >
+          <span>{{ item.code }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <logout-button />
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { getKaListAPI } from '@/services/kaItem'
-const kaList1 = ref([])
-const kaList2 = ref([])
+import { getKaListAPI, getKaNumberAPI } from '@/services/kaItem'
+import {
+  onPullDownRefresh,
+  onShareAppMessage,
+  onShareTimeline,
+} from '@dcloudio/uni-app'
+import { type KaProjectItem } from '@/types/kaItems'
+import logoutButton from '@/commonComponent/logoutButton/logoutButton.vue'
+
+onPullDownRefresh(() => {
+  getKaDataStateOne()
+  getKaDataStateTwo()
+  getKaList()
+  uni.stopPullDownRefresh()
+})
+
+// 分享给好友
+onShareAppMessage(() => {
+  return {
+    title: '动善时Dashboard', // 分享标题
+    path: '/pages/index/index', // 分享路径
+  }
+})
+
+// 分享到朋友圈
+onShareTimeline(() => {
+  return {
+    title: '动善时Dashboard', // 分享标题
+    query: '', // 可选：分享携带的参数
+  }
+})
+
+const kaList1 = ref<KaProjectItem[]>([])
+const kaList2 = ref<KaProjectItem[]>([])
+
 const chartData = ref()
+const Xdata = ref<string[]>([])
+const Ydata = ref<number[]>([])
 
 onMounted(() => {
   // 等待 DOM 加载完毕后初始化图表
+  getKaDataStateOne()
+  getKaDataStateTwo()
+  getKaList()
   getServerData()
-  // getKaDataStateOne()
-  // getKaDataStateTwo()
 })
 
 const getKaDataStateOne = async () => {
-  const res: any = await getKaListAPI({ state: 1 })
-  kaList1.value = res.data
+  const res = await getKaListAPI({ state: 1 })
+  kaList1.value = res?.data
 }
 const getKaDataStateTwo = async () => {
-  const res: any = await getKaListAPI({ state: 2 })
-  kaList2.value = res.data
+  const res = await getKaListAPI({ state: 2 })
+  kaList2.value = res?.data
+}
+
+const getKaList = async () => {
+  const res = await getKaNumberAPI()
+  //按照年份排序
+  // 按照 date 排序，并将数据分别放入 Xdata 和 Ydata
+  if (!res?.data) return
+
+  const sortedData = res?.data?.sort((a, b) => {
+    return new Date(a?.date).getTime() - new Date(b?.date).getTime()
+  })
+  sortedData.forEach((item) => {
+    Xdata.value.push(item?.date) // 将 date 放入 Xdata
+    Ydata.value.push(item?.number) // 将 number 放入 Ydata
+  })
 }
 
 const opts = {
   color: [
-    '#1890FF', // 默认曲线颜色
-    '#91CB74',
-    '#FAC858',
-    '#EE6666',
+    '#163172', // 默认曲线颜色
   ],
   padding: [15, 10, 0, 15],
   dataLabel: false, // 禁用数据标签
@@ -78,6 +128,7 @@ const opts = {
     gridColor: '#CCCCCC', // 网格线颜色
     gridType: 'solid', // 实线
     itemCount: 6, // x 轴显示的标签数量
+    fontSize: 10,
   },
   yAxis: {
     disabled: true, // 不显示 y 轴数据
@@ -98,15 +149,15 @@ const opts = {
 const getServerData = () => {
   setTimeout(() => {
     let res = {
-      categories: ['2018', '2019', '2020', '2021', '2022', '2023'], // x 轴数据
+      categories: Xdata.value, // x 轴数据
       series: [
         {
           linearColor: [
-            [0, '#1890FF'],
-            [0.5, '#00D1ED'],
-            [1, '#90F489'],
+            [0, '#163172'],
+            [0.5, '#163172'],
+            [1, '#163172'],
           ],
-          data: [15, 45, 15, 45, 15, 45], // 数据
+          data: Ydata.value, // 数据
           showPoint: false, // 禁用数据点显示
         },
       ],
@@ -118,8 +169,11 @@ const getServerData = () => {
 
 <style lang="scss" scoped>
 .charts-box {
-  width: 100%;
-  height: 300px;
+  width: 681rpx;
+  height: 429rpx;
+  background: #f6f7f8;
+  border-radius: 19rpx 19rpx 19rpx 19rpx;
+  margin-left: 34.6rpx;
 }
 
 .top-title {
@@ -205,8 +259,8 @@ const getServerData = () => {
 
       .item-id {
         display: inline-block;
-        margin-right: 34.6rpx;
         margin-left: 15.3rpx;
+        width: 60rpx;
       }
     }
   }

@@ -1,4 +1,4 @@
-import { useMemberStore } from '@/stores'
+import { useRememberPasswordStore } from '@/stores'
 
 /**
  * @description: http请求封装
@@ -12,7 +12,8 @@ import { useMemberStore } from '@/stores'
  * 3. 添加小程序端请求头标识
  * 4. 添加token 请求头标识
  */
-const baseURL = 'http://10.1.200.22:15000'
+const baseURL = 'http://183.193.101.170:15000'
+// const baseURL = 'https://ka.aolc.cn:15000'
 
 // 添加请求前拦截器
 const httpInterceptor = {
@@ -30,7 +31,7 @@ const httpInterceptor = {
       'source-client': 'miniapp',
     }
     // 4. 添加token 请求头标识
-    const menberStore = useMemberStore()
+    const menberStore = useRememberPasswordStore()
     const token = menberStore.profile?.token
     if (token) {
       options.header = {
@@ -53,7 +54,7 @@ uni.addInterceptor('uploadFile', httpInterceptor)
 interface Data<T> {
   code: string
   msg: string
-  result: T
+  data: T
 }
 
 // 添加类型
@@ -69,8 +70,8 @@ export const http = <T>(options: UniApp.RequestOptions) => {
           resolve(res.data as Data<T>)
         } else if (res.statusCode === 401) {
           // 4. 401 未授权 -> 清理用户信息 -> 跳转登录页
-          const menberStore = useMemberStore()
-          menberStore.clearProfile()
+          const menberStore = useRememberPasswordStore()
+          menberStore.clearPassword()
           uni.navigateTo({ url: '/pages/login/login' })
           reject(res) // 标记失败
         } else {
