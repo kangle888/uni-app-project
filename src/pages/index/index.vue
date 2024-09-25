@@ -1,10 +1,16 @@
 <template>
   <!-- 使用 canvas 元素来渲染图表 -->
-  <div class="top-title">KA装机量</div>
+  <div class="top-area">
+    <div class="top-title">KA装机量</div>
+    <div @click="handleLoginOut">
+      <img class="login-out-img" src="../../static/images/quit.png" alt="" />
+    </div>
+  </div>
+
   <div class="charts-box">
     <qiun-data-charts type="line" :opts="opts" :chartData="chartData" />
   </div>
-  <div class="top-title">KA项目</div>
+  <div class="top-title-ka">KA项目</div>
   <div class="bottom-area">
     <img
       class="img"
@@ -21,7 +27,7 @@
           <span class="item-id">
             {{ (index + 1).toString().padStart(2, '0') }}</span
           >
-          <span>{{ item.code }}</span>
+          <span class="item-code">{{ item.code }}</span>
         </div>
       </div>
       <div class="center"></div>
@@ -33,24 +39,24 @@
           <span class="item-id">
             {{ (index + 1).toString().padStart(2, '0') }}</span
           >
-          <span>{{ item.code }}</span>
+          <span class="item-code">{{ item.code }}</span>
         </div>
       </div>
     </div>
   </div>
-  <logout-button />
+  <!-- <logout-button /> -->
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import { getKaListAPI, getKaNumberAPI } from '@/services/kaItem'
 import {
   onPullDownRefresh,
   onShareAppMessage,
   onShareTimeline,
+  onShow,
 } from '@dcloudio/uni-app'
 import { type KaProjectItem } from '@/types/kaItems'
-import logoutButton from '@/commonComponent/logoutButton/logoutButton.vue'
 
 onPullDownRefresh(() => {
   getKaDataStateOne()
@@ -63,7 +69,7 @@ onPullDownRefresh(() => {
 onShareAppMessage(() => {
   return {
     title: '动善时销售项目', // 分享标题
-    path: '/pages/index/index', // 分享路径
+    path: '/pages/login/login', // 分享路径
     imageUrl: '../../static/images/1.png', // 分享图片
   }
 })
@@ -84,13 +90,16 @@ const chartData = ref()
 const Xdata = ref<string[]>([])
 const Ydata = ref<number[]>([])
 
-onMounted(() => {
-  // 等待 DOM 加载完毕后初始化图表
-  getKaDataStateOne()
-  getKaDataStateTwo()
-  getKaList()
+onShow(async () => {
+  console.log('切换刷新吗？')
+  await Promise.all([getKaDataStateOne(), getKaDataStateTwo(), getKaList()])
+  // 等待 DOM 更新
+  await nextTick()
+  // 初始化或更新图表
   getServerData()
 })
+
+onMounted(() => {})
 
 const getKaDataStateOne = async () => {
   const res = await getKaListAPI({ state: 1 })
@@ -102,6 +111,9 @@ const getKaDataStateTwo = async () => {
 }
 
 const getKaList = async () => {
+  // 清空 Xdata 和 Ydata
+  Xdata.value = []
+  Ydata.value = []
   const res = await getKaNumberAPI()
   //按照年份排序
   // 按照 date 排序，并将数据分别放入 Xdata 和 Ydata
@@ -149,6 +161,7 @@ const opts = {
 }
 
 const getServerData = () => {
+  console.log('getServerData')
   setTimeout(() => {
     let res = {
       categories: Xdata.value, // x 轴数据
@@ -167,6 +180,13 @@ const getServerData = () => {
     chartData.value = JSON.parse(JSON.stringify(res))
   }, 500)
 }
+
+const handleLoginOut = () => {
+  console.log('退出登录')
+  uni.redirectTo({
+    url: '/pages/login/login',
+  })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -177,8 +197,29 @@ const getServerData = () => {
   border-radius: 19rpx 19rpx 19rpx 19rpx;
   margin-left: 34.6rpx;
 }
-
-.top-title {
+.top-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  .top-title {
+    width: 200rpx;
+    height: 38rpx;
+    font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
+    font-weight: 500;
+    font-size: 38rpx;
+    color: #000000;
+    line-height: 38rpx;
+    font-style: normal;
+    margin: 32rpx 0 26rpx 32rpx;
+    text-align: center;
+  }
+  .login-out-img {
+    width: 125rpx;
+    height: 53.8rpx;
+    margin-right: 37.6rpx;
+  }
+}
+.top-title-ka {
   width: 200rpx;
   height: 38rpx;
   font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
@@ -207,7 +248,7 @@ const getServerData = () => {
 
   .img {
     width: 680rpx;
-    height: 621rpx;
+    height: 644rpx;
   }
 
   .show-data {
@@ -232,7 +273,7 @@ const getServerData = () => {
     }
 
     .center {
-      height: 548rpx;
+      height: 580rpx;
       width: 0rpx;
       border: 2rpx solid #e0e4ee;
       margin-top: 42.3rpx;
@@ -256,8 +297,8 @@ const getServerData = () => {
       border-bottom: 2rpx solid #e0e2e9;
       margin-left: 42.3rpx;
       width: 258rpx;
-      height: 50rpx;
-      line-height: 56rpx;
+      height: 52rpx;
+      line-height: 52rpx;
 
       .item-id {
         display: inline-block;
@@ -266,5 +307,11 @@ const getServerData = () => {
       }
     }
   }
+}
+.item-code {
+  white-space: nowrap; /* 防止换行 */
+  overflow: hidden; /* 隐藏溢出的内容 */
+  text-overflow: ellipsis; /* 使用省略号表示溢出 */
+  width: 190rpx; /* 根据需要设置宽度 */
 }
 </style>

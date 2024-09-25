@@ -12,8 +12,8 @@ import { useRememberPasswordStore } from '@/stores'
  * 3. 添加小程序端请求头标识
  * 4. 添加token 请求头标识
  */
-const baseURL = 'http://183.193.101.170:15000'
-// const baseURL = 'https://ka.aolc.cn:15000'
+// const baseURL = 'http://183.193.101.170:15000'
+const baseURL = 'https://ka.aolc.cn:15000'
 
 // 添加请求前拦截器
 const httpInterceptor = {

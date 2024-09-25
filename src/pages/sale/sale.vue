@@ -10,7 +10,7 @@
           <span class="item-id">
             {{ (index + 1).toString().padStart(2, '0') }}
           </span>
-          <span>{{ item.code }}</span>
+          <span class="item-code">{{ item.code }}</span>
         </div>
       </div>
       <img class="v-a-img" src="../../static/images/a.png" alt="" />
@@ -24,7 +24,7 @@
           <span class="item-id">{{
             (index + 1).toString().padStart(2, '0')
           }}</span>
-          <span>{{ item.code }}</span>
+          <span class="item-code">{{ item.code }}</span>
         </div>
       </div>
     </div>
@@ -38,7 +38,7 @@
           <span class="item-id">{{
             (index + 1).toString().padStart(2, '0')
           }}</span>
-          <span>{{ item.code }}</span>
+          <span class="item-code">{{ item.code }}</span>
         </div>
       </div>
       <img class="v-c-img" src="../../static/images/c.png" alt="" />
@@ -52,12 +52,11 @@
           <span class="item-id">{{
             (index + 1).toString().padStart(2, '0')
           }}</span>
-          <span>{{ item.code }}</span>
+          <span class="item-code">{{ item.code }}</span>
         </div>
       </div>
     </div>
   </div>
-  <logout-button />
 </template>
 
 <script setup lang="ts">
@@ -69,7 +68,6 @@ import {
   onShareTimeline,
   onPullDownRefresh,
 } from '@dcloudio/uni-app'
-import logoutButton from '@/commonComponent/logoutButton/logoutButton.vue'
 
 // 下拉刷新
 onPullDownRefresh(async () => {
@@ -89,7 +87,7 @@ onPullDownRefresh(async () => {
 onShareAppMessage(() => {
   return {
     title: '动善时销售项目', // 分享标题
-    path: '/pages/sale/sale', // 分享路径
+    path: '/pages/login/login', // 分享路径
     imageUrl: '../../static/images/1.png', // 分享图片
   }
 })
@@ -215,5 +213,11 @@ const fetchSaleProjects = async () => {
 }
 .v-d-line {
   border-bottom: 2rpx solid #b7e2bd;
+}
+.item-code {
+  white-space: nowrap; /* 防止换行 */
+  overflow: hidden; /* 隐藏溢出的内容 */
+  text-overflow: ellipsis; /* 使用省略号表示溢出 */
+  width: 190rpx; /* 根据需要设置宽度 */
 }
 </style>

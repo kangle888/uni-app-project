@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
+// import { useRememberPasswordStore } from '@/stores/modules/rememberPassword'
 
 onLaunch(() => {
   console.log('App Launch')

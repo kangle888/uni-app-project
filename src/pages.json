@@ -10,14 +10,6 @@
   },
   "pages": [
     //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
-    {
-      "path": "pages/login/login",
-      "style": {
-        "navigationBarTitleText": "登录",
-        "enableShareAppMessage": true, // 启用分享功能
-        "enableShareTimeline": true // 启用分享到朋友圈
-      }
-    },
 
     {
       "path": "pages/index/index",
@@ -36,6 +28,14 @@
         "enableShareTimeline": true, // 启用分享到朋友圈
         "enablePullDownRefresh": true // 启用下拉刷新
       }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "enableShareAppMessage": true, // 启用分享功能
+        "enableShareTimeline": true // 启用分享到朋友圈
+      }
     }
   ],
   "globalStyle": {
@@ -49,7 +49,7 @@
     "color": "#B8B8B8",
     "selectedColor": "#163172",
     "backgroundColor": "#fff",
-    "borderStyle": "white",
+    "borderStyle": "black",
     "list": [
       {
         "text": "DASHBOARD",
