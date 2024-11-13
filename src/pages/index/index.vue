@@ -10,19 +10,26 @@
   <div class="charts-box">
     <qiun-data-charts type="line" :opts="opts" :chartData="chartData" />
   </div>
-  <div class="top-title-ka">KA项目</div>
+
   <div class="bottom-area">
-    <img
-      class="img"
-      src="../../static/images/KA项目背景.png"
-      alt=""
-      srcset=""
-    />
+    <img class="img" src="../../static/images/g.png" alt="" srcset="" />
+    <div class="right-bgc">
+      <img
+        class="img-bgc-top"
+        src="../../static/images/e.png"
+        alt=""
+        srcset=""
+      />
+      <img
+        class="img-bgc-bottom"
+        src="../../static/images/f.png"
+        alt=""
+        srcset=""
+      />
+    </div>
     <div class="show-data">
       <div class="left">
-        <div class="left-img">
-          <img class="img2" src="../../static/images/时间ico.svg" alt="" />
-        </div>
+        <div class="top-title-ka">KA项目</div>
         <div class="list-item" v-for="(item, index) in kaList1" :key="index">
           <span class="item-id">
             {{ (index + 1).toString().padStart(2, '0') }}</span
@@ -30,16 +37,36 @@
           <span class="item-code">{{ item.code }}</span>
         </div>
       </div>
-      <div class="center"></div>
       <div class="right">
-        <div class="right-img">
-          <img class="img3" src="../../static/images/钱包ico.png" alt="" />
+        <div class="right-top">
+          <div class="top-title-win">WIN</div>
+          <div class="list-content">
+            <div
+              class="list-item"
+              v-for="(item, index) in kaList2"
+              :key="index"
+            >
+              <span class="item-id">
+                {{ (index + 1).toString().padStart(2, '0') }}</span
+              >
+              <span class="item-code">{{ item.code }}</span>
+            </div>
+          </div>
         </div>
-        <div class="list-item" v-for="(item, index) in kaList2" :key="index">
-          <span class="item-id">
-            {{ (index + 1).toString().padStart(2, '0') }}</span
-          >
-          <span class="item-code">{{ item.code }}</span>
+        <div class="right-bottom">
+          <div class="top-title-lost">LOST</div>
+          <div class="right-botton-conten">
+            <div
+              class="list-item"
+              v-for="(item, index) in kaList2"
+              :key="index"
+            >
+              <span class="item-id">
+                {{ (index + 1).toString().padStart(2, '0') }}</span
+              >
+              <span class="item-code">{{ item.code }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -48,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { getKaListAPI, getKaNumberAPI } from '@/services/kaItem'
 import {
   onPullDownRefresh,
@@ -99,8 +126,6 @@ onShow(async () => {
   getServerData()
 })
 
-onMounted(() => {})
-
 const getKaDataStateOne = async () => {
   const res = await getKaListAPI({ state: 1 })
   kaList1.value = res?.data
@@ -139,21 +164,22 @@ const opts = {
   legend: { show: false },
   xAxis: {
     disableGrid: false, // 启用 x 轴网格线
-    gridColor: '#CCCCCC', // 网格线颜色
+    gridColor: '#E0E2E9', // 网格线颜色
     gridType: 'solid', // 实线
     itemCount: 6, // x 轴显示的标签数量
-    fontSize: 10,
+    fontSize: 8,
   },
   yAxis: {
     disabled: true, // 不显示 y 轴数据
     disableGrid: false, // 显示 y 轴网格
+    gridColor: '#E0E2E9', // 网格线颜色
     gridType: 'solid', // 虚线网格
     dashLength: 2, // 网格虚线长度
   },
   extra: {
     line: {
       type: 'curve', // 圆滑曲线
-      width: 2, // 线条宽度
+      width: 3, // 线条宽度
       activeType: 'hollow', // 交互样式
       linearType: 'custom', // 允许自定义线性渐变颜色
     },
@@ -206,7 +232,7 @@ const handleLoginOut = () => {
     height: 38rpx;
     font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
     font-weight: 500;
-    font-size: 38rpx;
+    font-size: 31rpx;
     color: #000000;
     line-height: 38rpx;
     font-style: normal;
@@ -224,11 +250,11 @@ const handleLoginOut = () => {
   height: 38rpx;
   font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
   font-weight: 500;
-  font-size: 38rpx;
+  font-size: 31rpx;
   color: #000000;
   line-height: 38rpx;
   font-style: normal;
-  margin: 32rpx 0 26rpx 32rpx;
+  margin: 19rpx 0 0rpx 0rpx;
   text-align: center;
 }
 
@@ -245,10 +271,25 @@ const handleLoginOut = () => {
   justify-content: center;
   align-items: center;
   position: relative;
+  margin-top: 27rpx;
 
   .img {
-    width: 680rpx;
-    height: 644rpx;
+    width: 328.8rpx;
+    height: 678.8rpx;
+  }
+  .right-bgc {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-left: 23rpx;
+    .img-bgc-top {
+      width: 328.8rpx;
+      height: 384.6rpx;
+    }
+    .img-bgc-bottom {
+      width: 328.8rpx;
+      height: 294.2rpx;
+    }
   }
 
   .show-data {
@@ -261,33 +302,64 @@ const handleLoginOut = () => {
 
     .left {
       width: 50%;
-
-      .left-img {
-        margin: 34.6rpx 0 21rpx 57.7rpx;
-
-        .img2 {
-          width: 53.8rpx;
-          height: 53.8rpx;
-        }
-      }
-    }
-
-    .center {
-      height: 580rpx;
-      width: 0rpx;
-      border: 2rpx solid #e0e4ee;
-      margin-top: 42.3rpx;
     }
 
     .right {
-      width: 50%;
-
-      .right-img {
-        margin: 34.6rpx 0 21rpx 57.7rpx;
-
-        .img3 {
-          width: 53.8rpx;
-          height: 53.8rpx;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-left: 23rpx;
+      height: 678.8rpx;
+      .right-top {
+        .top-title-win {
+          height: 38rpx;
+          font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
+          font-weight: 500;
+          font-size: 31rpx;
+          color: #000000;
+          line-height: 38rpx;
+          font-style: normal;
+          margin: 19.2rpx 0 0 48.3rpx;
+        }
+        width: 328.8rpx;
+        height: 384.6rpx;
+        .list-content {
+          height: 300rpx;
+          overflow-x: auto;
+          .list-item {
+            border-bottom: 2rpx solid #b7e2bd;
+            height: 51.5rpx;
+            line-height: 65rpx;
+          }
+          .list-item:last-child {
+            border-bottom: none;
+          }
+        }
+      }
+      .right-bottom {
+        width: 328.8rpx;
+        height: 294.2rpx;
+        .top-title-lost {
+          height: 38rpx;
+          font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
+          font-weight: 500;
+          font-size: 31rpx;
+          color: #000000;
+          line-height: 38rpx;
+          font-style: normal;
+          margin: 19.2rpx 0 0 50.3rpx;
+        }
+        .right-botton-conten {
+          height: 214rpx;
+          overflow-x: auto;
+          .list-item {
+            height: 53.8rpx;
+            line-height: 65rpx;
+            border-bottom: 2rpx solid #c6cfe4;
+          }
+          .list-item:last-child {
+            border-bottom: none;
+          }
         }
       }
     }
@@ -297,8 +369,11 @@ const handleLoginOut = () => {
       border-bottom: 2rpx solid #e0e2e9;
       margin-left: 42.3rpx;
       width: 258rpx;
-      height: 52rpx;
-      line-height: 52rpx;
+      height: 61.5rpx;
+      line-height: 75rpx;
+      font-weight: 400;
+      font-size: 23rpx;
+      color: #000000;
 
       .item-id {
         display: inline-block;
@@ -306,12 +381,15 @@ const handleLoginOut = () => {
         width: 60rpx;
       }
     }
+    .list-item:last-child {
+      border-bottom: none;
+    }
   }
 }
 .item-code {
-  white-space: nowrap; /* 防止换行 */
-  overflow: hidden; /* 隐藏溢出的内容 */
-  text-overflow: ellipsis; /* 使用省略号表示溢出 */
-  width: 190rpx; /* 根据需要设置宽度 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 190rpx;
 }
 </style>
