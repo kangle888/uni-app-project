@@ -12,7 +12,12 @@ import { useMemberStore } from '@/stores'
  * 3. 添加小程序端请求头标识
  * 4. 添加token 请求头标识
  */
-const baseURL = 'https://pcapi-xiaotuxian-front-devtest.itheima.net'
+// 根据环境配置 baseURL，开发环境可以改为你的后端地址
+// 使用 import.meta.env.MODE 判断环境（已添加类型声明）
+const baseURL =
+  import.meta.env.MODE === 'development'
+    ? 'http://localhost:10000'
+    : 'https://your-production-api.com'
 
 // 添加请求前拦截器
 const httpInterceptor = {
@@ -26,6 +31,7 @@ const httpInterceptor = {
     options.timeout = 10000
     // 3. 添加小程序端请求头标识
     options.header = {
+      'Content-Type': 'application/json',
       ...options.header,
       'source-client': 'miniapp',
     }
@@ -51,9 +57,9 @@ uni.addInterceptor('uploadFile', httpInterceptor)
  *
  */
 interface Data<T> {
-  code: string
-  msg: string
-  result: T
+  code: number
+  message: string
+  data: T
 }
 
 // 添加类型
@@ -64,9 +70,21 @@ export const http = <T>(options: UniApp.RequestOptions) => {
     uni.request({
       ...options,
       success: (res) => {
+        const responseData = res.data as Data<T>
+
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          // 3. 请求成功
-          resolve(res.data as Data<T>)
+          // 检查业务状态码
+          if (responseData.code === 200) {
+            // 3. 请求成功
+            resolve(responseData)
+          } else {
+            // 业务逻辑错误
+            uni.showToast({
+              title: responseData.message || '请求失败',
+              icon: 'none',
+            })
+            reject(res)
+          }
         } else if (res.statusCode === 401) {
           // 4. 401 未授权 -> 清理用户信息 -> 跳转登录页
           const menberStore = useMemberStore()
@@ -74,9 +92,9 @@ export const http = <T>(options: UniApp.RequestOptions) => {
           uni.navigateTo({ url: '/pages/login/login' })
           reject(res) // 标记失败
         } else {
-          // 5. 其他错误
+          // 5. 其他HTTP错误
           uni.showToast({
-            title: (res.data as Data<T>).msg || '请求失败',
+            title: responseData?.message || '请求失败',
             icon: 'none',
           })
           reject(res) // 标记失败
