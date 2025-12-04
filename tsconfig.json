@@ -16,8 +16,10 @@
     ]
   },
   "vueCompilerOptions": {
-    // experimentalRuntimeMode 已废弃，现调整为 nativeTags，请升级 Volar 插件至最新版本
-    "nativeTags": ["block", "component", "template", "slot"]
+    "plugins": ["@uni-helper/uni-app-types/volar-plugin"],
+    // 关闭严格模板类型检查，避免 uni-app 的 button/checkbox 等组件属性
+    // 与 Web DOM 类型冲突而爆红（比如 type=\"primary\"、type=\"warn\"）
+    "strictTemplates": false
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"]
 }

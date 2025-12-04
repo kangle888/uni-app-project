@@ -15,9 +15,7 @@ import { useMemberStore } from '@/stores'
 // 根据环境配置 baseURL，开发环境可以改为你的后端地址
 // 使用 import.meta.env.MODE 判断环境（已添加类型声明）
 const baseURL =
-  import.meta.env.MODE === 'development'
-    ? 'http://localhost:10000'
-    : 'https://your-production-api.com'
+  import.meta.env.MODE === 'development' ? 'http://localhost:10000' : 'https://119.45.128.43:10000'
 
 // 添加请求前拦截器
 const httpInterceptor = {
