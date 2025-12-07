@@ -25,8 +25,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { wechatLogin } from '@/services/login'
 import { useMemberStore } from '@/stores'
+import { joinRoom } from '@/services/room'
 
 const memberStore = useMemberStore()
 const loading = ref(false)
@@ -80,12 +82,38 @@ const handleGetUserInfo = async (e: any) => {
         icon: 'success',
       })
 
-      // 4. 跳转到首页
-      setTimeout(() => {
-        uni.switchTab({
-          url: '/pages/index/index',
+      // 4. 检查是否有待加入的房间邀请码
+      const pendingCode = memberStore.pendingInviteCode
+      if (pendingCode) {
+        // 有待加入的房间，自动加入
+        try {
+          await joinRoom({ inviteCode: pendingCode })
+          uni.showToast({
+            title: '登录成功，已自动加入房间',
+            icon: 'success',
+          })
+          memberStore.clearPendingInviteCode()
+        } catch (error: any) {
+          console.error('自动加入房间失败:', error)
+          // 加入失败不影响登录，清除待加入码
+          memberStore.clearPendingInviteCode()
+        }
+      } else {
+        uni.showToast({
+          title: '登录成功',
+          icon: 'success',
         })
-      }, 1500)
+      }
+
+      // 5. 跳转到首页
+      setTimeout(
+        () => {
+          uni.switchTab({
+            url: '/pages/index/index',
+          })
+        },
+        pendingCode ? 2000 : 1500,
+      )
     } else {
       throw new Error(res.message || '登录失败')
     }

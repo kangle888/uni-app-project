@@ -90,3 +90,16 @@ export const createTransfer = (roomId: string, data: TransferPayload) => {
     data,
   })
 }
+
+export interface QRCodeResponse {
+  qrCode: string // base64 格式的图片
+  inviteCode: string
+}
+
+export const generateRoomQRCode = (data: { inviteCode: string }) => {
+  return http<QRCodeResponse>({
+    url: '/rooms/qrcode',
+    method: 'POST',
+    data,
+  })
+}

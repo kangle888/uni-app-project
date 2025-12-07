@@ -7,6 +7,8 @@ export const useMemberStore = defineStore(
   () => {
     // 会员信息
     const profile = ref<any>()
+    // 待加入的房间邀请码（扫码进入但未登录时保存）
+    const pendingInviteCode = ref<string>('')
 
     // 保存会员信息，登录时使用
     const setProfile = (val: any) => {
@@ -18,11 +20,24 @@ export const useMemberStore = defineStore(
       profile.value = undefined
     }
 
+    // 设置待加入的邀请码
+    const setPendingInviteCode = (code: string) => {
+      pendingInviteCode.value = code
+    }
+
+    // 清除待加入的邀请码
+    const clearPendingInviteCode = () => {
+      pendingInviteCode.value = ''
+    }
+
     // 记得 return
     return {
       profile,
+      pendingInviteCode,
       setProfile,
       clearProfile,
+      setPendingInviteCode,
+      clearPendingInviteCode,
     }
   },
   // TODO: 持久化

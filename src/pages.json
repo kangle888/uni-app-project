@@ -35,15 +35,37 @@
       }
     },
     {
-      "path": "pages/cart/cart",
+      "path": "pages/record/record",
       "style": {
-        "navigationBarTitleText": "购物车"
+        "navigationBarTitleText": "记账",
+        "enablePullDownRefresh": true
       }
     },
     {
-      "path": "pages/category/category",
+      "path": "pages/report/report",
       "style": {
-        "navigationBarTitleText": "分类"
+        "navigationBarTitleText": "报表",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/statistics/statistics",
+      "style": {
+        "navigationBarTitleText": "统计",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/bill/bill",
+      "style": {
+        "navigationBarTitleText": "账单",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/settings/settings",
+      "style": {
+        "navigationBarTitleText": "设置"
       }
     }
   ],
@@ -55,7 +77,7 @@
   },
   // 设置 TabBar
   "tabBar": {
-    "color": "#333",
+    "color": "#7A7E83",
     "selectedColor": "#27ba9b",
     "backgroundColor": "#fff",
     "borderStyle": "white",
@@ -67,14 +89,14 @@
         "selectedIconPath": "static/tabs/home_selected.png"
       },
       {
-        "text": "分类",
-        "pagePath": "pages/category/category",
+        "text": "记账",
+        "pagePath": "pages/record/record",
         "iconPath": "static/tabs/category_default.png",
         "selectedIconPath": "static/tabs/category_selected.png"
       },
       {
-        "text": "购物车",
-        "pagePath": "pages/cart/cart",
+        "text": "报表",
+        "pagePath": "pages/report/report",
         "iconPath": "static/tabs/cart_default.png",
         "selectedIconPath": "static/tabs/cart_selected.png"
       },

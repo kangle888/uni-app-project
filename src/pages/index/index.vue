@@ -1,8 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores'
-import { createRoom, fetchRooms, joinRoom, type RoomSummary } from '@/services/room'
+import {
+  createRoom,
+  fetchRooms,
+  joinRoom,
+  generateRoomQRCode,
+  type RoomSummary,
+  type RoomDetail,
+} from '@/services/room'
 
 const memberStore = useMemberStore()
 const rooms = ref<RoomSummary[]>([])
@@ -13,9 +20,20 @@ const createForm = reactive({ name: '' })
 const joinForm = reactive({ inviteCode: '' })
 const createPopupRef = ref<any>(null)
 const joinPopupRef = ref<any>(null)
+const qrCodePopupRef = ref<any>(null)
+const createdRoom = ref<RoomDetail | null>(null)
+const qrCodeImage = ref<string>('')
+const sharingRoom = ref<RoomSummary | null>(null) // 当前要分享的房间
 
 const isLogin = computed(() => Boolean(memberStore.profile?.token))
 const displayName = computed(() => memberStore.profile?.nickname || '朋友')
+const inviteCode = computed(() => {
+  // 优先使用正在分享的房间的邀请码，否则使用刚创建的房间
+  return sharingRoom.value?.invite_code || createdRoom.value?.room.invite_code || ''
+})
+const sharingRoomName = computed(() => {
+  return sharingRoom.value?.name || createdRoom.value?.room.name || ''
+})
 
 const fetchRoomList = async () => {
   if (!isLogin.value) return
@@ -68,17 +86,89 @@ const handleCreateRoom = async () => {
   }
   creating.value = true
   try {
-    await createRoom({ name })
-    uni.showToast({ title: '房间创建成功', icon: 'success' })
+    const res = await createRoom({ name })
+    createdRoom.value = res.data
     createForm.name = ''
     closeCreatePopup()
     await fetchRoomList()
+    // 生成二维码
+    await generateQRCode()
+    // 显示二维码弹窗
+    qrCodePopupRef.value?.open?.('center')
   } catch (error) {
     console.error(error)
   } finally {
     creating.value = false
   }
 }
+
+// 复制邀请码
+const copyInviteCode = () => {
+  if (!inviteCode.value) return
+  uni.setClipboardData({
+    data: inviteCode.value,
+    success: () => {
+      uni.showToast({ title: '邀请码已复制', icon: 'success' })
+    },
+  })
+}
+
+// 分享到微信好友
+const shareToWechat = () => {
+  // #ifdef MP-WEIXIN
+  // 微信小程序分享
+  if (inviteCode.value) {
+    uni.showShareMenu({
+      withShareTicket: true,
+      menus: ['shareAppMessage', 'shareTimeline'],
+    })
+    uni.showToast({
+      title: '请点击右上角分享',
+      icon: 'none',
+      duration: 2000,
+    })
+  }
+  // #endif
+
+  // #ifndef MP-WEIXIN
+  // 其他平台提示
+  uni.showToast({
+    title: '请使用右上角分享功能',
+    icon: 'none',
+  })
+  // #endif
+}
+
+// 关闭二维码弹窗
+const closeQRCodePopup = () => {
+  qrCodePopupRef.value?.close?.()
+  createdRoom.value = null
+  sharingRoom.value = null
+  qrCodeImage.value = ''
+}
+
+// 处理扫码进入（通过 URL 参数进入的情况）
+onLoad((options) => {
+  // 如果通过 URL 参数进入（如分享链接），options 中会包含 inviteCode
+  if (options?.inviteCode) {
+    const code = String(options.inviteCode).trim().toUpperCase()
+    if (code.length === 8) {
+      if (isLogin.value) {
+        // 已登录，直接填充并打开加入弹窗
+        joinForm.inviteCode = code
+        setTimeout(() => {
+          openJoinPopup()
+        }, 500)
+      } else {
+        // 未登录，保存邀请码并跳转登录
+        memberStore.setPendingInviteCode(code)
+        setTimeout(() => {
+          goLogin()
+        }, 500)
+      }
+    }
+  }
+})
 
 const handleJoinRoom = async () => {
   const inviteCode = joinForm.inviteCode.trim().toUpperCase()
@@ -106,6 +196,47 @@ const goRoomDetail = (room: RoomSummary) => {
   })
 }
 
+// 显示房间二维码（用于分享已有房间）
+const showRoomQRCode = async (room: RoomSummary, event?: any) => {
+  // 阻止事件冒泡，避免触发卡片点击
+  if (event) {
+    event.stopPropagation()
+  }
+
+  sharingRoom.value = room
+  createdRoom.value = null // 清空创建的房间信息
+
+  // 生成二维码
+  await generateQRCode()
+  // 显示二维码弹窗
+  qrCodePopupRef.value?.open?.('center')
+}
+
+// 修改生成二维码函数，使用后端生成微信小程序码
+const generateQRCode = async () => {
+  const code = inviteCode.value
+  if (!code) return
+
+  try {
+    // 调用后端接口生成微信小程序码
+    const res = await generateRoomQRCode({ inviteCode: code })
+    if (res.data?.qrCode) {
+      // 后端返回的是 base64 格式的图片
+      qrCodeImage.value = res.data.qrCode
+    } else {
+      throw new Error('生成二维码失败：返回数据为空')
+    }
+  } catch (error: any) {
+    console.error('生成二维码失败:', error)
+    uni.showToast({
+      title: error?.message || '生成二维码失败',
+      icon: 'none',
+      duration: 2000,
+    })
+    qrCodeImage.value = ''
+  }
+}
+
 const formatTime = (value?: string) => {
   if (!value) return '--'
   const date = new Date(value)
@@ -120,6 +251,21 @@ const formatTime = (value?: string) => {
 onShow(() => {
   if (isLogin.value) {
     fetchRoomList()
+
+    // 检查是否有待加入的房间邀请码（从扫码进入但未登录的情况）
+    const pendingCode = memberStore.pendingInviteCode
+    if (pendingCode) {
+      const code = String(pendingCode).trim().toUpperCase()
+      if (code.length === 8) {
+        joinForm.inviteCode = code
+        // 自动打开加入房间弹窗
+        setTimeout(() => {
+          openJoinPopup()
+        }, 500)
+      }
+      // 清除待加入码
+      memberStore.clearPendingInviteCode()
+    }
   }
 })
 
@@ -135,6 +281,25 @@ watch(
     }
   },
 )
+
+// 微信小程序分享配置
+// #ifdef MP-WEIXIN
+// @ts-ignore
+const onShareAppMessage = () => {
+  const room = sharingRoom.value || createdRoom.value?.room
+  if (room && inviteCode.value) {
+    return {
+      title: `邀请你加入房间：${room.name}`,
+      path: `/pages/index/index?inviteCode=${inviteCode.value}`,
+      imageUrl: qrCodeImage.value || '',
+    }
+  }
+  return {
+    title: '房间账本小程序',
+    path: '/pages/index/index',
+  }
+}
+// #endif
 </script>
 
 <template>
@@ -179,16 +344,26 @@ watch(
       <uni-card
         v-for="room in rooms"
         :key="room.id"
-        is-full="true"
+        :is-full="true"
         margin="0 0 24rpx"
         @tap="goRoomDetail(room)"
       >
         <view class="room-card">
           <view class="room-head">
-            <text class="room-name">{{ room.name }}</text>
-            <text class="room-tag">{{
-              room.creator_id === memberStore.profile?.id ? '我创建' : '我加入'
-            }}</text>
+            <view class="room-title-section">
+              <text class="room-name">{{ room.name }}</text>
+              <text class="room-tag">{{
+                room.creator_id === memberStore.profile?.id ? '我创建' : '我加入'
+              }}</text>
+            </view>
+            <button
+              class="share-room-btn"
+              size="mini"
+              type="primary"
+              @tap.stop="showRoomQRCode(room, $event)"
+            >
+              分享
+            </button>
           </view>
           <view class="room-meta">
             <view>
@@ -247,6 +422,42 @@ watch(
           >
             加入
           </button>
+        </view>
+      </view>
+    </uni-popup>
+
+    <!-- 二维码分享弹窗 -->
+    <uni-popup ref="qrCodePopupRef" type="center" background-color="rgba(0,0,0,0.7)">
+      <view class="qr-popup-card">
+        <view class="qr-popup-header">
+          <text class="qr-popup-title">{{ createdRoom ? '房间创建成功' : '分享房间' }}</text>
+          <text class="qr-popup-close" @tap="closeQRCodePopup">×</text>
+        </view>
+        <view class="qr-popup-content">
+          <view class="room-info">
+            <text class="room-name-text">{{ sharingRoomName }}</text>
+            <view class="invite-code-section">
+              <text class="invite-code-label">邀请码</text>
+              <view class="invite-code-box">
+                <text class="invite-code-text">{{ inviteCode }}</text>
+                <button class="copy-btn" size="mini" @tap="copyInviteCode">复制</button>
+              </view>
+            </view>
+          </view>
+
+          <view class="qr-code-section">
+            <text class="qr-code-tip">扫描二维码加入房间</text>
+            <view class="qr-code-wrapper">
+              <image v-if="qrCodeImage" :src="qrCodeImage" mode="aspectFit" class="qr-code-image" />
+              <view v-else class="qr-code-placeholder">
+                <text>二维码生成中...</text>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view class="qr-popup-actions">
+          <button class="share-btn" type="primary" @tap="shareToWechat">分享给好友</button>
+          <button class="close-btn" @tap="closeQRCodePopup">完成</button>
         </view>
       </view>
     </uni-popup>
@@ -376,6 +587,21 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16rpx;
+}
+
+.room-title-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.share-room-btn {
+  border-radius: 20rpx;
+  padding: 12rpx 24rpx;
+  font-size: 24rpx;
+  white-space: nowrap;
 }
 
 .room-name {
@@ -465,5 +691,156 @@ watch(
 
 .popup-actions .primary {
   min-width: 160rpx;
+}
+
+.qr-popup-card {
+  width: 600rpx;
+  background: #fff;
+  border-radius: 32rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.qr-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx;
+  border-bottom: 1rpx solid #f0f1f5;
+}
+
+.qr-popup-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #222;
+}
+
+.qr-popup-close {
+  font-size: 48rpx;
+  color: #999;
+  line-height: 1;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-popup-content {
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 32rpx;
+}
+
+.room-info {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.room-name-text {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #222;
+  text-align: center;
+}
+
+.invite-code-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.invite-code-label {
+  font-size: 24rpx;
+  color: #666;
+  text-align: center;
+}
+
+.invite-code-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  padding: 20rpx;
+  background: #f5f7fb;
+  border-radius: 16rpx;
+}
+
+.invite-code-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #27ba9b;
+  letter-spacing: 4rpx;
+}
+
+.copy-btn {
+  border-radius: 8rpx;
+}
+
+.qr-code-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.qr-code-tip {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.qr-code-wrapper {
+  width: 400rpx;
+  height: 400rpx;
+  background: #fff;
+  border: 2rpx solid #f0f1f5;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+}
+
+.qr-code-image {
+  width: 100%;
+  height: 100%;
+}
+
+.qr-code-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  font-size: 24rpx;
+}
+
+.qr-popup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 32rpx;
+  border-top: 1rpx solid #f0f1f5;
+}
+
+.share-btn {
+  width: 100%;
+  border-radius: 20rpx;
+  padding: 28rpx 0;
+  font-size: 30rpx;
+  background: linear-gradient(135deg, #27ba9b, #1f8ef1);
+}
+
+.close-btn {
+  width: 100%;
+  border-radius: 20rpx;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  background: #f5f7fb;
+  color: #666;
+  border: none;
 }
 </style>
