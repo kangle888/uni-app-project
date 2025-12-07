@@ -113,23 +113,8 @@ const copyInviteCode = () => {
   })
 }
 
-// 分享到微信好友
+// 分享到微信好友（非微信小程序平台使用）
 const shareToWechat = () => {
-  // #ifdef MP-WEIXIN
-  // 微信小程序分享
-  if (inviteCode.value) {
-    uni.showShareMenu({
-      withShareTicket: true,
-      menus: ['shareAppMessage', 'shareTimeline'],
-    })
-    uni.showToast({
-      title: '请点击右上角分享',
-      icon: 'none',
-      duration: 2000,
-    })
-  }
-  // #endif
-
   // #ifndef MP-WEIXIN
   // 其他平台提示
   uni.showToast({
@@ -456,7 +441,13 @@ const onShareAppMessage = () => {
           </view>
         </view>
         <view class="qr-popup-actions">
+          <!-- #ifdef MP-WEIXIN -->
+          <!-- 使用 open-type="share" 直接触发分享 -->
+          <button class="share-btn" type="primary" open-type="share">分享给好友</button>
+          <!-- #endif -->
+          <!-- #ifndef MP-WEIXIN -->
           <button class="share-btn" type="primary" @tap="shareToWechat">分享给好友</button>
+          <!-- #endif -->
           <button class="close-btn" @tap="closeQRCodePopup">完成</button>
         </view>
       </view>
