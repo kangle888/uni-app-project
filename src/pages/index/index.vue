@@ -59,7 +59,7 @@ const openCreatePopup = () => {
     goLogin()
     return
   }
-  createPopupRef.value?.open?.('bottom')
+  createPopupRef.value?.open?.('center')
 }
 
 const openJoinPopup = () => {
@@ -67,7 +67,7 @@ const openJoinPopup = () => {
     goLogin()
     return
   }
-  joinPopupRef.value?.open?.('bottom')
+  joinPopupRef.value?.open?.('center')
 }
 
 const closeCreatePopup = () => {
@@ -316,72 +316,97 @@ const onShareAppMessage = () => {
       <button class="login-btn" type="warn" size="mini" @tap="goLogin">去登录</button>
     </view>
 
-    <view class="list-header" v-if="isLogin">
-      <text class="title">我的房间</text>
-      <button class="refresh-btn" size="mini" @tap="fetchRoomList" :loading="loading">刷新</button>
-    </view>
+    <view v-if="isLogin" class="room-list-container">
+      <view class="list-header">
+        <text class="title">我的房间</text>
+        <button class="refresh-btn" size="mini" @tap="fetchRoomList" :loading="loading">
+          刷新
+        </button>
+      </view>
 
-    <view v-if="loading" class="state">
-      <uni-load-more status="loading" iconType="circle" />
-    </view>
-
-    <view v-else-if="rooms.length" class="room-list">
-      <uni-card
-        v-for="room in rooms"
-        :key="room.id"
-        :is-full="true"
-        margin="0 0 24rpx"
-        @tap="goRoomDetail(room)"
+      <scroll-view
+        class="room-scroll-view"
+        scroll-y
+        :refresher-enabled="true"
+        :refresher-triggered="loading"
+        @refresherrefresh="fetchRoomList"
       >
-        <view class="room-card">
-          <view class="room-head">
-            <view class="room-title-section">
-              <text class="room-name">{{ room.name }}</text>
-              <text class="room-tag">{{
-                room.creator_id === memberStore.profile?.id ? '我创建' : '我加入'
-              }}</text>
+        <view v-if="loading" class="state">
+          <uni-load-more status="loading" iconType="circle" />
+        </view>
+
+        <view v-else-if="rooms.length" class="room-list">
+          <uni-card
+            v-for="room in rooms"
+            :key="room.id"
+            :is-full="true"
+            margin="0 0 24rpx"
+            @tap="goRoomDetail(room)"
+          >
+            <view class="room-card">
+              <view class="room-head">
+                <view class="room-title-section">
+                  <text class="room-name">{{ room.name }}</text>
+                  <text class="room-tag">{{
+                    room.creator_id === memberStore.profile?.id ? '我创建' : '我加入'
+                  }}</text>
+                </view>
+                <button
+                  class="share-room-btn"
+                  size="mini"
+                  type="primary"
+                  @tap.stop="showRoomQRCode(room, $event)"
+                >
+                  分享
+                </button>
+              </view>
+              <view class="room-meta">
+                <view>
+                  <text class="meta-label">邀请码</text>
+                  <text class="meta-value">{{ room.invite_code }}</text>
+                </view>
+                <view>
+                  <text class="meta-label">创建时间</text>
+                  <text class="meta-value">{{ formatTime(room.created_at) }}</text>
+                </view>
+              </view>
             </view>
-            <button
-              class="share-room-btn"
-              size="mini"
-              type="primary"
-              @tap.stop="showRoomQRCode(room, $event)"
-            >
-              分享
-            </button>
-          </view>
-          <view class="room-meta">
-            <view>
-              <text class="meta-label">邀请码</text>
-              <text class="meta-value">{{ room.invite_code }}</text>
-            </view>
-            <view>
-              <text class="meta-label">创建时间</text>
-              <text class="meta-value">{{ formatTime(room.created_at) }}</text>
-            </view>
+          </uni-card>
+        </view>
+
+        <view v-else class="state empty">
+          <image class="empty-img" src="/static/images/blank.png" mode="widthFix" />
+          <text class="empty-text">暂时还没有房间，快去组织一个吧</text>
+          <view class="empty-actions">
+            <button size="mini" type="primary" @tap="openCreatePopup">创建房间</button>
+            <button size="mini" plain @tap="openJoinPopup">加入房间</button>
           </view>
         </view>
-      </uni-card>
+      </scroll-view>
     </view>
 
-    <view v-else-if="isLogin" class="state empty">
-      <image class="empty-img" src="/static/images/blank.png" mode="widthFix" />
-      <text class="empty-text">暂时还没有房间，快去组织一个吧</text>
-      <view class="empty-actions">
-        <button size="mini" type="primary" @tap="openCreatePopup">创建房间</button>
-        <button size="mini" plain @tap="openJoinPopup">加入房间</button>
-      </view>
-    </view>
-
-    <uni-popup ref="createPopupRef" type="bottom" background-color="#f8f9fb">
-      <view class="popup-card">
-        <view class="popup-title">创建房间</view>
-        <uni-easyinput v-model="createForm.name" placeholder="输入房间名称" maxlength="20" />
-        <view class="popup-actions">
-          <button class="ghost" size="mini" @tap="closeCreatePopup">取消</button>
+    <uni-popup ref="createPopupRef" type="center" class="my-popup">
+      <view class="popup-card-center">
+        <view class="popup-header-center">
+          <text class="popup-title-center">创建房间</text>
+          <text class="popup-close-icon" @tap="closeCreatePopup">×</text>
+        </view>
+        <view class="popup-content-center">
+          <view class="input-wrapper">
+            <text class="input-label">房间名称</text>
+            <uni-easyinput
+              v-model="createForm.name"
+              placeholder="请输入房间名称"
+              maxlength="20"
+              :styles="{ borderColor: '#e0e0e0' }"
+            />
+            <text class="input-tip">2-20个字符</text>
+          </view>
+        </view>
+        <view class="popup-actions-center">
+          <button class="popup-btn-cancel" @tap="closeCreatePopup">取消</button>
           <button
-            class="primary"
-            size="mini"
+            class="popup-btn-confirm"
             type="primary"
             :loading="creating"
             @tap="handleCreateRoom"
@@ -392,19 +417,27 @@ const onShareAppMessage = () => {
       </view>
     </uni-popup>
 
-    <uni-popup ref="joinPopupRef" type="bottom" background-color="#f8f9fb">
-      <view class="popup-card">
-        <view class="popup-title">加入房间</view>
-        <uni-easyinput v-model="joinForm.inviteCode" placeholder="输入8位邀请码" maxlength="8" />
-        <view class="popup-actions">
-          <button class="ghost" size="mini" @tap="closeJoinPopup">取消</button>
-          <button
-            class="primary"
-            size="mini"
-            type="primary"
-            :loading="joining"
-            @tap="handleJoinRoom"
-          >
+    <uni-popup ref="joinPopupRef" type="center" class="my-popup">
+      <view class="popup-card-center">
+        <view class="popup-header-center">
+          <text class="popup-title-center">加入房间</text>
+          <text class="popup-close-icon" @tap="closeJoinPopup">×</text>
+        </view>
+        <view class="popup-content-center">
+          <view class="input-wrapper">
+            <text class="input-label">邀请码</text>
+            <uni-easyinput
+              v-model="joinForm.inviteCode"
+              placeholder="请输入8位邀请码"
+              maxlength="8"
+              :styles="{ borderColor: '#e0e0e0' }"
+            />
+            <text class="input-tip">8位字母或数字</text>
+          </view>
+        </view>
+        <view class="popup-actions-center">
+          <button class="popup-btn-cancel" @tap="closeJoinPopup">取消</button>
+          <button class="popup-btn-confirm" type="primary" :loading="joining" @tap="handleJoinRoom">
             加入
           </button>
         </view>
@@ -412,7 +445,7 @@ const onShareAppMessage = () => {
     </uni-popup>
 
     <!-- 二维码分享弹窗 -->
-    <uni-popup ref="qrCodePopupRef" type="center" background-color="rgba(0,0,0,0.7)">
+    <uni-popup ref="qrCodePopupRef" type="center">
       <view class="qr-popup-card">
         <view class="qr-popup-header">
           <text class="qr-popup-title">{{ createdRoom ? '房间创建成功' : '分享房间' }}</text>
@@ -456,10 +489,20 @@ const onShareAppMessage = () => {
 </template>
 
 <style lang="scss" scoped>
+.my-popup {
+  ::v-deep(.uni-popup__wrapper) {
+    display: flex;
+    justify-content: center !important;
+  }
+}
+
 .page {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   padding: 32rpx;
   background: linear-gradient(180deg, #f5fbff 0%, #fefefe 120rpx);
+  box-sizing: border-box;
 }
 
 .hero-card {
@@ -544,12 +587,20 @@ const onShareAppMessage = () => {
   color: #8c6c1a;
 }
 
-.list-header {
+.room-list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   margin-top: 48rpx;
+}
+
+.list-header {
   margin-bottom: 24rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .title {
@@ -562,10 +613,16 @@ const onShareAppMessage = () => {
   border-radius: 999rpx;
 }
 
+.room-scroll-view {
+  flex: 1;
+  height: 0; // 重要：让 scroll-view 可以正确计算高度
+}
+
 .room-list {
   display: flex;
   flex-direction: column;
   gap: 24rpx;
+  padding-bottom: 32rpx; // 底部留白
 }
 
 .room-card {
@@ -652,36 +709,139 @@ const onShareAppMessage = () => {
   gap: 20rpx;
 }
 
-.popup-card {
-  padding: 40rpx 32rpx 32rpx;
-  border-radius: 32rpx 32rpx 0 0;
+// 中间弹窗样式 - 美化UI
+.popup-card-center {
+  width: 640rpx;
+  max-width: 100%;
   background: #fff;
-  box-shadow: 0 -12rpx 48rpx rgba(0, 0, 0, 0.06);
+  border-radius: 32rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24rpx 64rpx rgba(0, 0, 0, 0.2);
+  animation: popupFadeIn 0.3s ease-out;
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20rpx);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.popup-header-center {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 48rpx 40rpx 32rpx;
+  border-bottom: 1rpx solid #f0f1f5;
+  background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
+}
+
+.popup-title-center {
+  font-size: 38rpx;
+  font-weight: 600;
+  color: #222;
+  letter-spacing: 1rpx;
+}
+
+.popup-close-icon {
+  font-size: 44rpx;
+  color: #999;
+  line-height: 1;
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.popup-close-icon:active {
+  color: #666;
+  background: #f5f7fb;
+}
+
+.popup-content-center {
+  padding: 48rpx 40rpx;
   display: flex;
   flex-direction: column;
   gap: 32rpx;
 }
 
-.popup-title {
+.input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.input-label {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8rpx;
+}
+
+.input-tip {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 4rpx;
+  padding-left: 4rpx;
+}
+
+.popup-actions-center {
+  display: flex;
+  gap: 24rpx;
+  padding: 0 40rpx 40rpx;
+}
+
+.popup-btn-cancel {
+  flex: 1;
+  height: 96rpx;
+  border-radius: 24rpx;
+  background: #f5f7fb;
+  color: #666;
+  font-size: 32rpx;
+  font-weight: 500;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.popup-btn-cancel:active {
+  background: #e8eaed;
+  transform: scale(0.98);
+}
+
+.popup-btn-confirm {
+  flex: 1;
+  height: 96rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, #27ba9b 0%, #1f8ef1 100%);
+  color: #fff;
   font-size: 32rpx;
   font-weight: 600;
-  text-align: center;
-}
-
-.popup-actions {
+  border: none;
   display: flex;
-  justify-content: flex-end;
-  gap: 24rpx;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  box-shadow: 0 8rpx 24rpx rgba(39, 186, 155, 0.3);
 }
 
-.popup-actions .ghost {
-  background: transparent;
-  color: #666;
-  border: 1rpx solid #ccc;
-}
-
-.popup-actions .primary {
-  min-width: 160rpx;
+.popup-btn-confirm:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 12rpx rgba(39, 186, 155, 0.25);
 }
 
 .qr-popup-card {
