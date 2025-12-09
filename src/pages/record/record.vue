@@ -23,6 +23,9 @@ const transferForm = reactive({
   amount: '',
   remark: '',
 })
+const quickAmount = ref('')
+const transferPopupRef = ref<any>()
+const transferTargetId = ref('')
 
 const isLogin = computed(() => Boolean(memberStore.profile?.token))
 const selectedRoom = computed(() => rooms.value.find((r) => r.id === selectedRoomId.value))
@@ -44,6 +47,39 @@ const memberLabel = (member: RoomMember, index: number) => {
   const userIdText = member.user_id ? `#${String(member.user_id).slice(-4)}` : ''
   return `成员${order} ${userIdText}`
 }
+
+const sortedMembers = computed(() =>
+  [...members.value].sort((a, b) => Number(b.balance) - Number(a.balance)),
+)
+
+const myRank = computed(() => {
+  const idx = sortedMembers.value.findIndex((m) => m.id === myMemberId.value)
+  return idx === -1 ? '-' : idx + 1
+})
+
+const baseURL =
+  import.meta.env.MODE === 'development' ? 'http://localhost:10000' : 'https://xklandlxy.art'
+const normalizeUrl = (url?: string | null) => {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+  if (url.startsWith('/')) return `${baseURL}${url}`
+  return `${baseURL}/${url}`
+}
+
+const memberCards = computed(() =>
+  sortedMembers.value.map((member, idx) => {
+    const score = Number(member.balance)
+    const isMe = member.id === myMemberId.value
+    const displayName = member.nickname || memberLabel(member, idx)
+    return {
+      id: member.id,
+      name: displayName,
+      avatar: normalizeUrl(member.avatar_url),
+      score,
+      tag: isMe ? '我' : '',
+    }
+  }),
+)
 
 const memberNameMap = computed(() => {
   const map = new Map<string, string>()
@@ -164,12 +200,60 @@ const submitTransfer = async () => {
   }
 }
 
+const openQuickTransfer = (memberId: string) => {
+  if (!myMemberId.value) {
+    uni.showToast({ title: '您尚未加入房间', icon: 'none' })
+    return
+  }
+  if (memberId === myMemberId.value) {
+    uni.showToast({ title: '不能给自己转账', icon: 'none' })
+    return
+  }
+  transferTargetId.value = memberId
+  quickAmount.value = ''
+  transferPopupRef.value?.open?.('center')
+}
+
+const submitQuickTransfer = async () => {
+  const amountNumber = Number(quickAmount.value)
+  if (!amountNumber || amountNumber <= 0) {
+    uni.showToast({ title: '请输入正确的金额', icon: 'none' })
+    return
+  }
+  submitting.value = true
+  try {
+    await createTransfer(selectedRoomId.value, {
+      fromMemberId: myMemberId.value,
+      toMemberId: transferTargetId.value,
+      amount: Number(amountNumber.toFixed(2)),
+      remark: '',
+    })
+    uni.showToast({ title: '转账成功', icon: 'success' })
+    transferPopupRef.value?.close?.()
+    quickAmount.value = ''
+    await fetchRoomDetailData(selectedRoomId.value)
+  } catch (error) {
+    console.error(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
 const goToRoomDetail = () => {
   if (selectedRoomId.value) {
     uni.navigateTo({
       url: `/pages/room/detail?roomId=${selectedRoomId.value}`,
     })
   }
+}
+
+// 引导登录/回首页
+const goLogin = () => {
+  uni.navigateTo({ url: '/pages/login/login' })
+}
+
+const goHome = () => {
+  uni.switchTab({ url: '/pages/index/index' })
 }
 
 watch(
@@ -215,14 +299,7 @@ onPullDownRefresh(() => {
   <view class="page">
     <view v-if="!isLogin" class="login-tip">
       <text class="tip-text">请先登录使用记账功能</text>
-      <button
-        class="login-btn"
-        type="primary"
-        size="mini"
-        @tap="() => uni.navigateTo({ url: '/pages/login/login' })"
-      >
-        去登录
-      </button>
+      <button class="login-btn" type="primary" size="mini" @tap="goLogin">去登录</button>
     </view>
 
     <view v-else-if="loading && !detail" class="state">
@@ -232,14 +309,7 @@ onPullDownRefresh(() => {
     <view v-else-if="rooms.length === 0" class="state empty">
       <image class="empty-img" src="/static/images/blank.png" mode="widthFix" />
       <text class="empty-text">暂无房间，请先创建或加入房间</text>
-      <button
-        class="action-btn"
-        type="primary"
-        size="mini"
-        @tap="() => uni.switchTab({ url: '/pages/index/index' })"
-      >
-        去首页
-      </button>
+      <button class="action-btn" type="primary" size="mini" @tap="goHome">去首页</button>
     </view>
 
     <view v-else class="content">
@@ -262,85 +332,94 @@ onPullDownRefresh(() => {
 
       <!-- 房间信息卡片 -->
       <view v-if="detail" class="info-card">
-        <view class="info-header">
-          <view class="info-left">
+        <view class="info-top">
+          <view class="room-meta">
             <text class="room-name">{{ detail.room.name }}</text>
             <text class="room-code">邀请码：{{ detail.room.invite_code }}</text>
           </view>
-          <view
-            class="balance-badge"
-            :class="{ positive: myBalance >= 0, negative: myBalance < 0 }"
-          >
-            <text class="balance-label">我的余额</text>
-            <text class="balance-value">¥{{ formatAmount(Math.abs(myBalance)) }}</text>
+          <view class="room-actions">
+            <button size="mini" class="ghost-btn" @tap="goToRoomDetail">房间详情</button>
           </view>
         </view>
-        <view class="info-stats">
-          <text class="stat-text">{{ members.length }} 位成员</text>
-        </view>
-      </view>
-
-      <!-- 记账表单 -->
-      <view v-if="detail && myMemberId" class="record-card">
-        <view class="card-title">
-          <text>记一笔</text>
-          <text class="subtitle">记录成员之间的转账</text>
-        </view>
-
-        <view class="form-item">
-          <text class="form-label">转出成员</text>
-          <view class="input-field readonly">
-            <text>{{ memberNameMap.get(transferForm.fromMemberId) || '仅支持本人转出' }}</text>
-          </view>
-        </view>
-
-        <view class="form-item">
-          <text class="form-label">转入成员</text>
-          <picker
-            mode="selector"
-            :range="transferTargets"
-            range-key="label"
-            :value="targetIndex >= 0 ? targetIndex : 0"
-            @change="onTargetChange"
-          >
-            <view class="input-field selectable">
-              <text>{{ targetLabel }}</text>
-              <text class="arrow">›</text>
+        <view class="score-card" :class="{ positive: myBalance >= 0, negative: myBalance < 0 }">
+          <view class="score-left">
+            <text class="score-label">我的积分</text>
+            <text class="score-value"
+              >{{ myBalance >= 0 ? '+' : '-' }}{{ formatAmount(Math.abs(myBalance)) }}</text
+            >
+            <view class="score-sub">
+              <text>我的排名：{{ myRank }}</text>
+              <text>成员数：{{ members.length }}</text>
             </view>
-          </picker>
+          </view>
+          <view class="score-right">
+            <view class="score-icon">↻</view>
+          </view>
         </view>
-
-        <view class="form-item">
-          <text class="form-label">金额</text>
-          <uni-easyinput v-model="transferForm.amount" placeholder="请输入金额" type="digit" />
-        </view>
-
-        <view class="form-item">
-          <text class="form-label">备注</text>
-          <uni-easyinput v-model="transferForm.remark" placeholder="可填写事项说明" />
-        </view>
-
-        <button
-          class="submit-btn"
-          type="primary"
-          :loading="submitting"
-          :disabled="!myMemberId || submitting"
-          @tap="submitTransfer"
-        >
-          记录转账
-        </button>
       </view>
 
-      <view v-else-if="detail && !myMemberId" class="not-member-tip">
-        <text class="tip-text">您尚未加入此房间，无法记账</text>
-        <button class="action-btn" type="primary" size="mini" @tap="goToRoomDetail">
-          查看房间详情
-        </button>
+      <!-- 房间成员 -->
+      <view v-if="detail" class="member-card">
+        <view class="section-header">
+          <text class="section-title">房间成员 ({{ members.length }})</text>
+          <button size="mini" class="ghost-btn" @tap="fetchRoomDetailData(selectedRoomId)">
+            刷新
+          </button>
+        </view>
+        <view class="member-list">
+          <view v-for="item in memberCards" :key="item.id" class="member-row">
+            <view class="avatar" :class="{ me: item.tag === '我' }">
+              <image v-if="item.avatar" :src="item.avatar" mode="aspectFill" class="avatar-img" />
+              <text v-else class="avatar-text">{{ item.name?.slice(0, 1) || '友' }}</text>
+            </view>
+            <view class="member-info">
+              <text class="member-name">
+                {{ item.name }}
+                <text v-if="item.tag" class="me-tag">{{ item.tag }}</text>
+              </text>
+              <text class="member-id">ID: #{{ item.id.slice(-4) }}</text>
+            </view>
+            <view
+              class="member-score"
+              :class="{ positive: item.score >= 0, negative: item.score < 0 }"
+            >
+              <text>{{ item.score >= 0 ? '+' : '' }}{{ formatAmount(item.score) }}</text>
+            </view>
+            <button
+              class="transfer-btn"
+              size="mini"
+              type="primary"
+              @tap.stop="openQuickTransfer(item.id)"
+            >
+              转账
+            </button>
+          </view>
+        </view>
       </view>
+
+      <!-- 快速转账弹窗 -->
+      <uni-popup ref="transferPopupRef" type="center">
+        <view class="popup-card">
+          <view class="popup-header">
+            <text class="popup-title">输入转账金额</text>
+            <text class="popup-close" @tap="transferPopupRef?.close?.()">×</text>
+          </view>
+          <view class="popup-body">
+            <uni-easyinput v-model="quickAmount" placeholder="请输入金额" type="digit" />
+          </view>
+          <view class="popup-actions">
+            <button class="popup-btn ghost" @tap="transferPopupRef?.close?.()">取消</button>
+            <button class="popup-btn primary" :loading="submitting" @tap="submitQuickTransfer">
+              确认
+            </button>
+          </view>
+        </view>
+      </uni-popup>
 
       <!-- 快捷操作 -->
-      <view v-if="detail" class="action-section">
-        <button class="action-btn" type="default" @tap="goToRoomDetail">查看完整详情</button>
+      <view v-if="detail" class="action-section footer-actions">
+        <button class="action-btn ghost" @tap="goHome">离开房间</button>
+        <button class="action-btn primary" type="primary" @tap="goToRoomDetail">结算积分</button>
       </view>
     </view>
   </view>
@@ -437,14 +516,14 @@ onPullDownRefresh(() => {
   box-shadow: 0 4rpx 20rpx rgba(39, 186, 155, 0.3);
 }
 
-.info-header {
+.info-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24rpx;
+  margin-bottom: 20rpx;
 }
 
-.info-left {
+.room-meta {
   flex: 1;
 }
 
@@ -462,101 +541,228 @@ onPullDownRefresh(() => {
   letter-spacing: 2rpx;
 }
 
-.balance-badge {
-  text-align: right;
-  padding: 16rpx 24rpx;
+.room-actions .ghost-btn {
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 16rpx;
-  backdrop-filter: blur(10rpx);
+  color: #fff;
+  border: none;
 }
 
-.balance-label {
-  display: block;
-  font-size: 22rpx;
-  opacity: 0.9;
-  margin-bottom: 4rpx;
+.score-card {
+  margin-top: 8rpx;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  backdrop-filter: blur(6rpx);
 }
 
-.balance-value {
-  display: block;
-  font-size: 32rpx;
-  font-weight: 600;
+.score-card.positive .score-value {
+  color: #e9ffed;
 }
 
-.info-stats {
+.score-card.negative .score-value {
+  color: #ffe9e9;
+}
+
+.score-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.score-label {
   font-size: 24rpx;
   opacity: 0.9;
 }
 
-.record-card {
+.score-value {
+  font-size: 44rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
+}
+
+.score-sub {
+  display: flex;
+  gap: 16rpx;
+  font-size: 24rpx;
+  opacity: 0.9;
+}
+
+.score-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+}
+
+.member-card {
   background: #fff;
   border-radius: 24rpx;
-  padding: 32rpx;
+  padding: 28rpx;
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
 }
 
-.card-title {
+.section-header {
   display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-  margin-bottom: 32rpx;
-  padding-bottom: 24rpx;
-  border-bottom: 1rpx solid #f0f1f5;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
 }
 
-.card-title text:first-child {
-  font-size: 32rpx;
+.section-title {
+  font-size: 30rpx;
   font-weight: 600;
   color: #222;
 }
 
-.subtitle {
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 18rpx 16rpx;
+  border-radius: 18rpx;
+  background: #f7f9fc;
+  border: 2rpx solid #e4e9f2;
+}
+
+.avatar {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f5f7fb, #eaf4ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar.me {
+  background: linear-gradient(135deg, #27ba9b, #1f8ef1);
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-text {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #4c6fff;
+}
+
+.member-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.member-name {
+  font-size: 28rpx;
+  color: #222;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.member-id {
   font-size: 24rpx;
   color: #999;
 }
 
-.form-item {
-  margin-bottom: 24rpx;
+.me-tag {
+  margin-left: 8rpx;
+  padding: 4rpx 10rpx;
+  background: rgba(39, 186, 155, 0.15);
+  color: #27ba9b;
+  border-radius: 999rpx;
+  font-size: 22rpx;
 }
 
-.form-label {
-  display: block;
+.member-score {
+  font-size: 30rpx;
+  font-weight: 600;
+  min-width: 140rpx;
+  text-align: right;
+}
+
+.member-score.positive {
+  color: #27ba9b;
+}
+
+.member-score.negative {
+  color: #e55d5d;
+}
+
+.transfer-btn {
+  border-radius: 16rpx;
+  padding: 0 20rpx;
   font-size: 26rpx;
-  color: #555;
-  margin-bottom: 12rpx;
 }
 
-.input-field {
-  min-height: 80rpx;
-  border-radius: 18rpx;
-  padding: 0 24rpx;
-  background: #f5f7fb;
+.popup-card {
+  width: 520rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  box-shadow: 0 24rpx 64rpx rgba(0, 0, 0, 0.2);
+}
+
+.popup-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 28rpx;
+  margin-bottom: 16rpx;
 }
 
-.input-field.readonly {
-  color: #888;
-}
-
-.input-field.selectable {
+.popup-title {
+  font-size: 30rpx;
+  font-weight: 600;
   color: #222;
 }
 
-.arrow {
-  font-size: 40rpx;
-  color: #bbb;
+.popup-close {
+  font-size: 36rpx;
+  color: #999;
 }
 
-.submit-btn {
-  margin-top: 12rpx;
-  border-radius: 20rpx;
+.popup-body {
+  margin-bottom: 20rpx;
+}
+
+.popup-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.popup-btn {
+  flex: 1;
+  border-radius: 18rpx;
+  padding: 20rpx 0;
+  font-size: 28rpx;
+}
+
+.popup-btn.ghost {
+  background: #f5f7fb;
+  color: #333;
+}
+
+.popup-btn.primary {
   background: linear-gradient(135deg, #27ba9b, #1f8ef1);
-  padding: 28rpx 0;
-  font-size: 30rpx;
-  font-weight: 500;
+  color: #fff;
 }
 
 .not-member-tip {
@@ -578,5 +784,28 @@ onPullDownRefresh(() => {
   border-radius: 20rpx;
   padding: 28rpx 0;
   font-size: 30rpx;
+}
+
+.action-btn.ghost {
+  background: #f5f7fb;
+  color: #333;
+  border: 1rpx solid #e0e0e0;
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #27ba9b, #1f8ef1);
+  color: #fff;
+  border: none;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.ghost-btn {
+  background: #f5f7fb;
+  color: #333;
+  border: 1rpx solid #e0e0e0;
 }
 </style>

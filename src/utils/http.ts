@@ -13,10 +13,10 @@ import { useMemberStore } from '@/stores'
  * 4. 添加token 请求头标识
  */
 // 根据环境配置 baseURL，开发环境可以改为你的后端地址
-// 使用 import.meta.env.MODE 判断环境（已添加类型声明）
+// 使用 import.meta.env.MODE 判断环境（已添加类型声明） http://localhost:10000
 const baseURL =
   import.meta.env.MODE === 'development'
-    ? 'https://xklandlxy.art' // 本地开发用 Node 本地端口
+    ? 'http://localhost:10000' // 本地开发用 Node 本地端口
     : 'https://xklandlxy.art' // 生产环境用 HTTPS 域名
 
 // 添加请求前拦截器

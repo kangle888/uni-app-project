@@ -237,8 +237,8 @@ onPullDownRefresh(() => {
 <style lang="scss" scoped>
 .page {
   min-height: 100vh;
-  padding: 32rpx;
-  background: linear-gradient(180deg, #f5fbff 0%, #fefefe 120rpx);
+  padding: 24rpx;
+  background: linear-gradient(180deg, #e6f0ff 0%, #f7f9ff 240rpx);
 }
 
 .login-tip {
@@ -286,8 +286,8 @@ onPullDownRefresh(() => {
 .room-selector-card {
   background: #fff;
   border-radius: 24rpx;
-  padding: 32rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  padding: 28rpx;
+  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.06);
 }
 
 .label {
@@ -320,8 +320,8 @@ onPullDownRefresh(() => {
 .bill-card {
   background: #fff;
   border-radius: 24rpx;
-  padding: 32rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  padding: 28rpx;
+  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.06);
 }
 
 .card-header {
@@ -351,7 +351,7 @@ onPullDownRefresh(() => {
 }
 
 .bill-item {
-  padding-bottom: 24rpx;
+  padding: 18rpx 12rpx 24rpx;
   border-bottom: 1rpx solid #f0f1f5;
 }
 

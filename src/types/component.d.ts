@@ -13,7 +13,6 @@ declare module 'vue' {
     view: any
     text: any
     button: any
-
     // uni-ui 组件（按需继续补充）
     'uni-section': any
     'uni-card': any

@@ -20,6 +20,8 @@ export interface RoomMember {
   user_id: number
   balance: string
   joined_at: string
+  nickname?: string
+  avatar_url?: string
 }
 
 export interface RoomTransaction {
@@ -98,7 +100,7 @@ export interface QRCodeResponse {
 
 export const generateRoomQRCode = (data: { inviteCode: string }) => {
   return http<QRCodeResponse>({
-    url: '/rooms/qrcode',
+    url: '/rooms/qr',
     method: 'POST',
     data,
   })

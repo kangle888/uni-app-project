@@ -497,57 +497,60 @@ const onShareAppMessage = () => {
 }
 
 .page {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 32rpx;
-  background: linear-gradient(180deg, #f5fbff 0%, #fefefe 120rpx);
+  padding: 24rpx;
+  background: linear-gradient(180deg, #e6f0ff 0%, #f7f9ff 240rpx);
   box-sizing: border-box;
 }
 
 .hero-card {
-  background: #1f8ef1;
-  color: #fff;
+  background: linear-gradient(180deg, #eef4ff 0%, #ffffff 75%);
+  color: #222;
   border-radius: 32rpx;
-  padding: 40rpx;
+  padding: 32rpx 28rpx;
   display: flex;
   flex-direction: column;
-  gap: 40rpx;
-  box-shadow: 0 24rpx 48rpx rgba(31, 142, 241, 0.25);
+  gap: 28rpx;
+  box-shadow: 0 18rpx 36rpx rgba(77, 118, 255, 0.12);
 }
 
 .greeting .hello {
-  font-size: 40rpx;
-  font-weight: 600;
+  font-size: 38rpx;
+  font-weight: 700;
 }
 
 .greeting .subtitle {
   display: block;
-  margin-top: 12rpx;
+  margin-top: 8rpx;
   font-size: 28rpx;
-  opacity: 0.85;
+  color: #768099;
 }
 
 .stats {
   display: flex;
   justify-content: space-between;
+  gap: 16rpx;
 }
 
 .stat-item {
   flex: 1;
-  padding-right: 20rpx;
+  padding: 20rpx;
+  background: #f5f8ff;
+  border-radius: 20rpx;
 }
 
 .stat-value {
   display: block;
-  font-size: 44rpx;
-  font-weight: 600;
+  font-size: 42rpx;
+  font-weight: 700;
 }
 
 .stat-label {
   display: block;
   font-size: 24rpx;
-  opacity: 0.9;
+  color: #8a8fa6;
 }
 
 .action-card {
@@ -566,13 +569,13 @@ const onShareAppMessage = () => {
 }
 
 .action-btn.primary {
-  background: #27ba9b;
+  background: linear-gradient(135deg, #27ba9b, #1f8ef1);
   color: #fff;
 }
 
 .action-btn.ghost {
-  background: rgba(39, 186, 155, 0.1);
-  color: #27ba9b;
+  background: #f5f7fb;
+  color: #1f8ef1;
 }
 
 .login-tip {
@@ -592,7 +595,7 @@ const onShareAppMessage = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  margin-top: 48rpx;
+  margin-top: 32rpx;
 }
 
 .list-header {
@@ -629,6 +632,10 @@ const onShareAppMessage = () => {
   display: flex;
   flex-direction: column;
   gap: 24rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.06);
 }
 
 .room-head {
@@ -671,6 +678,8 @@ const onShareAppMessage = () => {
   justify-content: space-between;
   font-size: 26rpx;
   color: #666;
+  flex-wrap: wrap;
+  gap: 16rpx;
 }
 
 .meta-label {
