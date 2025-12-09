@@ -7,6 +7,8 @@ import {
   fetchRooms,
   joinRoom,
   generateRoomQRCode,
+  deleteRoom,
+  leaveRoom,
   type RoomSummary,
   type RoomDetail,
 } from '@/services/room'
@@ -24,6 +26,8 @@ const qrCodePopupRef = ref<any>(null)
 const createdRoom = ref<RoomDetail | null>(null)
 const qrCodeImage = ref<string>('')
 const sharingRoom = ref<RoomSummary | null>(null) // 当前要分享的房间
+const swipeIndex = ref<number>(-1)
+const selectedRoomId = ref<string>('') // 当前选中房间（用于删除/退出后重置）
 
 const isLogin = computed(() => Boolean(memberStore.profile?.token))
 const displayName = computed(() => memberStore.profile?.nickname || '朋友')
@@ -130,6 +134,40 @@ const closeQRCodePopup = () => {
   createdRoom.value = null
   sharingRoom.value = null
   qrCodeImage.value = ''
+}
+
+const removeRoomLocally = (roomId: string) => {
+  rooms.value = rooms.value.filter((r) => r.id !== roomId)
+  if (selectedRoomId.value === roomId) {
+    selectedRoomId.value = rooms.value[0]?.id || ''
+  }
+}
+
+const confirmDeleteOrLeave = (room: RoomSummary) => {
+  const isCreator = room.creator_id === memberStore.profile?.id
+  const title = isCreator ? '删除房间' : '退出房间'
+  const content = isCreator
+    ? '删除后房间及数据将不可恢复，确认删除？'
+    : '退出后将不再看到该房间，确认退出？'
+
+  uni.showModal({
+    title,
+    content,
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        if (isCreator) {
+          await deleteRoom(room.id)
+        } else {
+          await leaveRoom(room.id)
+        }
+        uni.showToast({ title: isCreator ? '已删除' : '已退出', icon: 'success' })
+        removeRoomLocally(room.id)
+      } catch (error: any) {
+        uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
+      }
+    },
+  })
 }
 
 // 处理扫码进入（通过 URL 参数进入的情况）
@@ -336,42 +374,50 @@ const onShareAppMessage = () => {
         </view>
 
         <view v-else-if="rooms.length" class="room-list">
-          <uni-card
-            v-for="room in rooms"
-            :key="room.id"
-            :is-full="true"
-            margin="0 0 24rpx"
-            @tap="goRoomDetail(room)"
-          >
-            <view class="room-card">
-              <view class="room-head">
-                <view class="room-title-section">
-                  <text class="room-name">{{ room.name }}</text>
-                  <text class="room-tag">{{
-                    room.creator_id === memberStore.profile?.id ? '我创建' : '我加入'
-                  }}</text>
+          <uni-swipe-action>
+            <uni-swipe-action-item
+              v-for="room in rooms"
+              :key="room.id"
+              :right-options="[
+                {
+                  text: room.creator_id === memberStore.profile?.id ? '删除' : '退出',
+                  style: { backgroundColor: '#f56c6c', color: '#fff', width: '140rpx' },
+                },
+              ]"
+              @click="confirmDeleteOrLeave(room)"
+            >
+              <uni-card :is-full="true" margin="0 0 24rpx" @tap="goRoomDetail(room)">
+                <view class="room-card">
+                  <view class="room-head">
+                    <view class="room-title-section">
+                      <text class="room-name">{{ room.name }}</text>
+                      <text class="room-tag">{{
+                        room.creator_id === memberStore.profile?.id ? '我创建' : '我加入'
+                      }}</text>
+                    </view>
+                    <button
+                      class="share-room-btn"
+                      size="mini"
+                      type="primary"
+                      @tap.stop="showRoomQRCode(room, $event)"
+                    >
+                      分享
+                    </button>
+                  </view>
+                  <view class="room-meta">
+                    <view>
+                      <text class="meta-label">邀请码</text>
+                      <text class="meta-value">{{ room.invite_code }}</text>
+                    </view>
+                    <view>
+                      <text class="meta-label">创建时间</text>
+                      <text class="meta-value">{{ formatTime(room.created_at) }}</text>
+                    </view>
+                  </view>
                 </view>
-                <button
-                  class="share-room-btn"
-                  size="mini"
-                  type="primary"
-                  @tap.stop="showRoomQRCode(room, $event)"
-                >
-                  分享
-                </button>
-              </view>
-              <view class="room-meta">
-                <view>
-                  <text class="meta-label">邀请码</text>
-                  <text class="meta-value">{{ room.invite_code }}</text>
-                </view>
-                <view>
-                  <text class="meta-label">创建时间</text>
-                  <text class="meta-value">{{ formatTime(room.created_at) }}</text>
-                </view>
-              </view>
-            </view>
-          </uni-card>
+              </uni-card>
+            </uni-swipe-action-item>
+          </uni-swipe-action>
         </view>
 
         <view v-else class="state empty">

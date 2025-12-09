@@ -62,6 +62,20 @@ export const fetchRooms = () => {
   })
 }
 
+export const deleteRoom = (roomId: string) => {
+  return http({
+    url: `/rooms/${roomId}`,
+    method: 'DELETE',
+  })
+}
+
+export const leaveRoom = (roomId: string) => {
+  return http({
+    url: `/rooms/${roomId}/leave`,
+    method: 'DELETE',
+  })
+}
+
 export const createRoom = (data: CreateRoomPayload) => {
   return http<RoomDetail>({
     url: '/rooms',
