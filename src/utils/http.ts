@@ -25,6 +25,10 @@ const httpInterceptor = {
   invoke(options: UniApp.RequestOptions) {
     // 1. 非http 开头的请求地址，自动添加前缀
     if (!options.url.startsWith('http')) {
+      // 如果 URL 不是以 /api 开头，则添加 /api 前缀
+      if (!options.url.startsWith('/api')) {
+        options.url = '/api' + options.url
+      }
       options.url = baseURL + options.url
     }
     // 2. 请求超时, 默认 10s
