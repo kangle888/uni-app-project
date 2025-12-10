@@ -28,6 +28,9 @@ const qrCodeImage = ref<string>('')
 const sharingRoom = ref<RoomSummary | null>(null) // 当前要分享的房间
 const swipeIndex = ref<number>(-1)
 const selectedRoomId = ref<string>('') // 当前选中房间（用于删除/退出后重置）
+const touchStartX = ref<number>(0)
+const touchStartY = ref<number>(0)
+const currentSwipeRoomId = ref<string>('') // 当前滑动的房间ID
 
 const isLogin = computed(() => Boolean(memberStore.profile?.token))
 const displayName = computed(() => memberStore.profile?.nickname || '朋友')
@@ -141,6 +144,59 @@ const removeRoomLocally = (roomId: string) => {
   if (selectedRoomId.value === roomId) {
     selectedRoomId.value = rooms.value[0]?.id || ''
   }
+  // 如果删除的是当前滑动的房间，重置滑动状态
+  if (currentSwipeRoomId.value === roomId) {
+    currentSwipeRoomId.value = ''
+  }
+}
+
+// 触摸开始
+const handleTouchStart = (e: any, roomId: string) => {
+  touchStartX.value = e.touches[0].clientX
+  touchStartY.value = e.touches[0].clientY
+}
+
+// 触摸移动
+const handleTouchMove = (e: any, roomId: string) => {
+  const touchX = e.touches[0].clientX
+  const touchY = e.touches[0].clientY
+  const deltaX = touchX - touchStartX.value
+  const deltaY = touchY - touchStartY.value
+
+  // 如果横向滑动距离大于纵向滑动距离，且向左滑动超过50px，显示删除按钮
+  if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < -50) {
+    // 关闭其他已滑动的项
+    if (currentSwipeRoomId.value && currentSwipeRoomId.value !== roomId) {
+      currentSwipeRoomId.value = ''
+    }
+    currentSwipeRoomId.value = roomId
+  } else if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 50) {
+    // 向右滑动，隐藏删除按钮
+    if (currentSwipeRoomId.value === roomId) {
+      currentSwipeRoomId.value = ''
+    }
+  }
+}
+
+// 触摸结束
+const handleTouchEnd = () => {
+  // 触摸结束时的逻辑
+}
+
+// 点击卡片，关闭滑动或跳转详情
+const handleCardTap = (room: RoomSummary) => {
+  // 如果当前项已滑动，点击时关闭滑动
+  if (currentSwipeRoomId.value === room.id) {
+    currentSwipeRoomId.value = ''
+    return
+  }
+  // 如果其他项已滑动，先关闭
+  if (currentSwipeRoomId.value) {
+    currentSwipeRoomId.value = ''
+    return
+  }
+  // 跳转到详情页
+  goRoomDetail(room)
 }
 
 const confirmDeleteOrLeave = (room: RoomSummary) => {
@@ -362,62 +418,56 @@ const onShareAppMessage = () => {
         </button>
       </view>
 
-      <scroll-view
-        class="room-scroll-view"
-        scroll-y
-        :refresher-enabled="true"
-        :refresher-triggered="loading"
-        @refresherrefresh="fetchRoomList"
-      >
+      <view class="room-scroll-view">
         <view v-if="loading" class="state">
-          <uni-load-more status="loading" iconType="circle" />
+          <text class="loading-text">加载中...</text>
         </view>
 
         <view v-else-if="rooms.length" class="room-list">
-          <uni-swipe-action>
-            <uni-swipe-action-item
-              v-for="room in rooms"
-              :key="room.id"
-              :right-options="[
-                {
-                  text: room.creator_id === memberStore.profile?.id ? '删除' : '退出',
-                  style: { backgroundColor: '#f56c6c', color: '#fff', width: '140rpx' },
-                },
-              ]"
-              @click="confirmDeleteOrLeave(room)"
-            >
-              <uni-card :is-full="true" margin="0 0 24rpx" @tap="goRoomDetail(room)">
-                <view class="room-card">
-                  <view class="room-head">
-                    <view class="room-title-section">
-                      <text class="room-name">{{ room.name }}</text>
-                      <text class="room-tag">{{
-                        room.creator_id === memberStore.profile?.id ? '我创建' : '我加入'
-                      }}</text>
-                    </view>
-                    <button
-                      class="share-room-btn"
-                      size="mini"
-                      type="primary"
-                      @tap.stop="showRoomQRCode(room, $event)"
-                    >
-                      分享
-                    </button>
+          <view
+            v-for="room in rooms"
+            :key="room.id"
+            class="room-item-wrapper"
+            @touchstart="handleTouchStart($event, room.id)"
+            @touchmove="handleTouchMove($event, room.id)"
+            @touchend="handleTouchEnd"
+          >
+            <view class="room-card-container" :class="{ swiped: currentSwipeRoomId === room.id }">
+              <view class="room-card" @tap="handleCardTap(room)">
+                <view class="room-head">
+                  <view class="room-title-section">
+                    <text class="room-name">{{ room.name }}</text>
+                    <text class="room-tag">{{
+                      room.creator_id === memberStore.profile?.id ? '我创建' : '我加入'
+                    }}</text>
                   </view>
-                  <view class="room-meta">
-                    <view>
-                      <text class="meta-label">邀请码</text>
-                      <text class="meta-value">{{ room.invite_code }}</text>
-                    </view>
-                    <view>
-                      <text class="meta-label">创建时间</text>
-                      <text class="meta-value">{{ formatTime(room.created_at) }}</text>
-                    </view>
+                  <button
+                    class="share-room-btn"
+                    size="mini"
+                    type="primary"
+                    @tap.stop="showRoomQRCode(room, $event)"
+                  >
+                    分享
+                  </button>
+                </view>
+                <view class="room-meta">
+                  <view>
+                    <text class="meta-label">邀请码</text>
+                    <text class="meta-value">{{ room.invite_code }}</text>
+                  </view>
+                  <view>
+                    <text class="meta-label">创建时间</text>
+                    <text class="meta-value">{{ formatTime(room.created_at) }}</text>
                   </view>
                 </view>
-              </uni-card>
-            </uni-swipe-action-item>
-          </uni-swipe-action>
+              </view>
+            </view>
+            <view class="room-delete-btn" @tap.stop="confirmDeleteOrLeave(room)">
+              <text class="delete-btn-text">{{
+                room.creator_id === memberStore.profile?.id ? '删除' : '退出'
+              }}</text>
+            </view>
+          </view>
         </view>
 
         <view v-else class="state empty">
@@ -428,7 +478,7 @@ const onShareAppMessage = () => {
             <button size="mini" plain @tap="openJoinPopup">加入房间</button>
           </view>
         </view>
-      </scroll-view>
+      </view>
     </view>
 
     <uni-popup ref="createPopupRef" type="center" class="my-popup">
@@ -664,7 +714,8 @@ const onShareAppMessage = () => {
 
 .room-scroll-view {
   flex: 1;
-  height: 0; // 重要：让 scroll-view 可以正确计算高度
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .room-list {
@@ -672,6 +723,25 @@ const onShareAppMessage = () => {
   flex-direction: column;
   gap: 24rpx;
   padding-bottom: 32rpx; // 底部留白
+}
+
+.room-item-wrapper {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24rpx;
+}
+
+.room-card-container {
+  position: relative;
+  transition: transform 0.3s ease;
+  width: 100%;
+  z-index: 2;
+  background: #fff;
+  border-radius: 24rpx;
+}
+
+.room-card-container.swiped {
+  transform: translateX(-140rpx);
 }
 
 .room-card {
@@ -682,6 +752,26 @@ const onShareAppMessage = () => {
   border-radius: 24rpx;
   padding: 24rpx;
   box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.06);
+}
+
+.room-delete-btn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 140rpx;
+  background-color: #f56c6c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 24rpx 24rpx 0;
+  z-index: 1;
+}
+
+.delete-btn-text {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 500;
 }
 
 .room-head {
@@ -745,6 +835,11 @@ const onShareAppMessage = () => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #999;
 }
 
 .state.empty {
