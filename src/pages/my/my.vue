@@ -19,12 +19,16 @@ const displayName = computed(() => memberStore.profile?.nickname || '朋友')
 const baseURL =
   import.meta.env.MODE === 'development' ? 'http://localhost:10000' : 'https://xklandlxy.art'
 const normalizeUrl = (url?: string | null) => {
-  if (!url) return ''
+  if (!url || url.trim() === '') return ''
   if (/^https?:\/\//i.test(url)) return url
   if (url.startsWith('/')) return `${baseURL}${url}`
   return `${baseURL}/${url}`
 }
-const avatarSrc = computed(() => normalizeUrl(userInfo.value?.avatar_url))
+
+const avatarSrc = computed(() => {
+  const url = normalizeUrl(userInfo.value?.avatar_url)
+  return url || ''
+})
 
 const fetchRoomList = async () => {
   if (!isLogin.value) return
@@ -53,42 +57,85 @@ const goToLogin = () => {
 
 // 上传 base64 到后端
 const uploadBase64 = (filename: string, base64: string) => {
-  return http<{ filePath: string }>({
+  return http<{ filePath: string; fileUrl?: string; fileUrlAbsolute?: string }>({
     url: '/upload/base64',
     method: 'POST',
     data: { filename, base64: encodeURIComponent(base64) },
   })
 }
 
-// 使用微信头像昵称
-const useWechatProfile = () => {
+// 处理微信头像选择（新方案：open-type="chooseAvatar"）
+const onChooseAvatar = async (e: any) => {
   if (!isLogin.value) {
     goToLogin()
     return
   }
-  uni.getUserProfile({
-    desc: '用于完善头像昵称',
-    success: async (res) => {
-      try {
-        const avatar_url = res.userInfo?.avatarUrl
-        const nickname = res.userInfo?.nickName
-        const normalizedAvatar = normalizeUrl(avatar_url)
-        await updateProfile({ avatar_url: normalizedAvatar, nickname })
-        memberStore.setProfile({
-          ...memberStore.profile,
-          avatar_url: normalizedAvatar,
-          nickname,
-        })
-        uni.showToast({ title: '已同步微信资料', icon: 'success' })
-      } catch (err) {
-        console.error(err)
-        uni.showToast({ title: '同步失败', icon: 'none' })
-      }
-    },
-    fail: () => {
-      uni.showToast({ title: '用户取消授权', icon: 'none' })
-    },
-  })
+
+  const avatarUrl = e.detail.avatarUrl
+  if (!avatarUrl) return
+
+  try {
+    uploading.value = true
+
+    // 构建完整的上传 URL（使用 /user/profile 接口，需要包含 /api 前缀）
+    // 注意：拦截器会自动添加 /api 前缀，所以这里只需要 /user/profile
+    const uploadUrl = '/user/profile'
+    // 获取 token
+    const token = userInfo.value?.token
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    console.log('准备上传头像，URL:', uploadUrl, 'filePath:', avatarUrl)
+
+    // 使用 uni.uploadFile 直接上传微信临时文件到 /user/profile
+    const uploadRes = await new Promise<any>((resolve, reject) => {
+      uni.uploadFile({
+        url: uploadUrl, // 使用 /user/profile 接口（拦截器会自动添加 baseURL 和 /api 前缀）
+        filePath: avatarUrl, // 微信临时文件路径（http/tmp 虚拟地址）
+        name: 'file', // 字段名，后端会查找 'file'、'avatar' 或 'avatar_url'
+        header: {
+          Authorization: `Bearer ${token}`, // 显式添加 token
+          'source-client': 'miniapp',
+        },
+        success: (res) => {
+          try {
+            const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+            if (data.code === 200) {
+              resolve(data)
+            } else {
+              reject(new Error(data.message || '上传失败'))
+            }
+          } catch (parseErr) {
+            console.error('响应解析失败:', parseErr, res.data)
+            reject(new Error('响应解析失败'))
+          }
+        },
+        fail: (err) => {
+          console.error('上传请求失败:', err)
+          reject(err)
+        },
+      })
+    })
+
+    // 从响应中获取更新后的用户信息，包含 avatar_url
+    const updatedAvatarUrl = uploadRes.data?.avatar_url
+    if (updatedAvatarUrl) {
+      // 更新本地状态
+      memberStore.setProfile({
+        ...memberStore.profile,
+        avatar_url: updatedAvatarUrl,
+      })
+      uni.showToast({ title: '头像已更新', icon: 'success' })
+    } else {
+      throw new Error('上传失败：未获取到头像地址')
+    }
+  } catch (err: any) {
+    console.error('头像上传失败:', err)
+    uni.showToast({ title: err.message || '上传失败', icon: 'none' })
+  } finally {
+    uploading.value = false
+  }
 }
 
 const updateAvatar = async (avatar_url: string) => {
@@ -134,14 +181,12 @@ const openAvatarActions = () => {
     return
   }
   uni.showActionSheet({
-    itemList: ['用微信头像昵称', '从相册选择', '拍照'],
+    itemList: ['从相册选择', '拍照'],
     success: (res) => {
       const index = res.tapIndex
       if (index === 0) {
-        useWechatProfile()
-      } else if (index === 1) {
         chooseAndUploadImage(['album'])
-      } else if (index === 2) {
+      } else if (index === 1) {
         chooseAndUploadImage(['camera'])
       }
     },
@@ -155,6 +200,21 @@ const openNicknamePopup = () => {
   }
   editingNickname.value = displayName.value
   nicknamePopupRef.value?.open?.('center')
+}
+
+const goToHome = () => {
+  uni.switchTab({ url: '/pages/index/index' })
+}
+
+const handleNicknameBlur = (e: any) => {
+  // 微信昵称输入框失焦时，如果用户选择了微信昵称，会自动填充
+  if (e.detail?.value) {
+    editingNickname.value = e.detail.value
+  }
+}
+
+const handleNicknameConfirm = () => {
+  submitNickname()
 }
 
 const submitNickname = async () => {
@@ -187,11 +247,28 @@ onShow(() => {
   <view class="page">
     <view class="hero">
       <view v-if="isLogin" class="hero-profile">
+        <!-- 使用新的微信头像选择能力 -->
+        <!-- #ifdef MP-WEIXIN -->
+        <button class="hero-avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+          <view class="hero-avatar">
+            <image
+              v-if="avatarSrc && avatarSrc.trim()"
+              :src="avatarSrc"
+              mode="aspectFill"
+              class="hero-avatar-img"
+            />
+            <text v-else class="hero-avatar-text">{{ displayName.charAt(0) }}</text>
+            <view v-if="uploading" class="hero-avatar-mask">...</view>
+          </view>
+        </button>
+        <!-- #endif -->
+        <!-- #ifndef MP-WEIXIN -->
         <view class="hero-avatar" @tap="openAvatarActions">
           <image v-if="avatarSrc" :src="avatarSrc" mode="aspectFill" class="hero-avatar-img" />
           <text v-else class="hero-avatar-text">{{ displayName.charAt(0) }}</text>
           <view v-if="uploading" class="hero-avatar-mask">...</view>
         </view>
+        <!-- #endif -->
         <text class="hero-name">{{ displayName }}</text>
       </view>
       <view v-else class="hero-login">
@@ -211,6 +288,25 @@ onShow(() => {
     </view>
 
     <view class="card list-card">
+      <!-- 使用新的微信头像选择能力 -->
+      <!-- #ifdef MP-WEIXIN -->
+      <button class="list-row-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+        <view class="list-row">
+          <view class="row-left">
+            <text class="row-icon">😀</text>
+            <text class="row-title">头像</text>
+          </view>
+          <view class="row-right">
+            <view class="mini-avatar">
+              <image v-if="avatarSrc" :src="avatarSrc" mode="aspectFill" />
+              <text v-else>{{ displayName.charAt(0) }}</text>
+            </view>
+            <text class="row-arrow">›</text>
+          </view>
+        </view>
+      </button>
+      <!-- #endif -->
+      <!-- #ifndef MP-WEIXIN -->
       <view class="list-row" @tap="openAvatarActions">
         <view class="row-left">
           <text class="row-icon">😀</text>
@@ -224,6 +320,7 @@ onShow(() => {
           <text class="row-arrow">›</text>
         </view>
       </view>
+      <!-- #endif -->
       <view class="list-row" @tap="openNicknamePopup">
         <view class="row-left">
           <text class="row-icon">📝</text>
@@ -244,7 +341,7 @@ onShow(() => {
         </view>
         <text class="menu-arrow">›</text>
       </view>
-      <view class="menu-item" @tap="() => uni.switchTab({ url: '/pages/index/index' })">
+      <view class="menu-item" @tap="goToHome">
         <view class="menu-left">
           <text class="menu-icon">🏠</text>
           <text class="menu-title">我的房间</text>
@@ -261,11 +358,24 @@ onShow(() => {
           <text class="popup-close" @tap="nicknamePopupRef?.close?.()">×</text>
         </view>
         <view class="popup-body">
+          <!-- 使用新的微信昵称输入能力 -->
+          <!-- #ifdef MP-WEIXIN -->
+          <input
+            v-model="editingNickname"
+            type="nickname"
+            class="nickname-input"
+            placeholder="请输入新的昵称"
+            @blur="handleNicknameBlur"
+            @confirm="handleNicknameConfirm"
+          />
+          <!-- #endif -->
+          <!-- #ifndef MP-WEIXIN -->
           <uni-easyinput
             v-model="editingNickname"
             placeholder="请输入新的昵称"
             :inputBorder="false"
           />
+          <!-- #endif -->
         </view>
         <view class="popup-actions">
           <button class="popup-btn ghost" @tap="nicknamePopupRef?.close?.()">取消</button>
@@ -297,6 +407,18 @@ onShow(() => {
   align-items: center;
   gap: 16rpx;
   padding: 12rpx 0 24rpx;
+}
+
+.hero-avatar-btn {
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  line-height: 1;
+}
+
+.hero-avatar-btn::after {
+  border: none;
 }
 
 .hero-avatar {
@@ -390,6 +512,20 @@ onShow(() => {
 
 .list-card {
   overflow: hidden;
+}
+
+.list-row-btn {
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  line-height: 1;
+  width: 100%;
+  text-align: left;
+}
+
+.list-row-btn::after {
+  border: none;
 }
 
 .list-row {
@@ -545,6 +681,16 @@ onShow(() => {
 
 .popup-body {
   margin-bottom: 20rpx;
+}
+
+.nickname-input {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 24rpx;
+  background: #f5f7fb;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #222;
 }
 
 .popup-actions {

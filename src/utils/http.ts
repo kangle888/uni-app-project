@@ -16,13 +16,13 @@ import { useMemberStore } from '@/stores'
 // 使用 import.meta.env.MODE 判断环境（已添加类型声明） http://localhost:10000
 const baseURL =
   import.meta.env.MODE === 'development'
-    ? 'https://xklandlxy.art' // 本地开发用 Node 本地端口
+    ? 'http://localhost:10000' // 本地开发用 Node 本地端口
     : 'https://xklandlxy.art' // 生产环境用 HTTPS 域名
 
 // 添加请求前拦截器
 const httpInterceptor = {
   // 拦截前触发
-  invoke(options: UniApp.RequestOptions) {
+  invoke(options: UniApp.RequestOptions | UniApp.UploadFileOption) {
     // 1. 非http 开头的请求地址，自动添加前缀
     if (!options.url.startsWith('http')) {
       // 如果 URL 不是以 /api 开头，则添加 /api 前缀
@@ -31,22 +31,34 @@ const httpInterceptor = {
       }
       options.url = baseURL + options.url
     }
-    // 2. 请求超时, 默认 10s
-    options.timeout = 10000
-    // 3. 添加小程序端请求头标识
-    options.header = {
-      'Content-Type': 'application/json',
-      ...options.header,
-      'source-client': 'miniapp',
+
+    // 判断是否是文件上传请求
+    const isUploadFile = 'filePath' in options
+
+    // 2. 请求超时, 默认 10s（uploadFile 可能不支持 timeout）
+    if ('timeout' in options) {
+      options.timeout = 10000
     }
-    // 4. 添加token 请求头标识
+
+    // 3. 初始化 header
+    if (!options.header) {
+      options.header = {}
+    }
+
+    // 4. 添加小程序端请求头标识和 token
     const menberStore = useMemberStore()
     const token = menberStore.profile?.token
+
+    // 对于 request 请求，设置 Content-Type；对于 uploadFile，不设置（让系统自动处理）
+    if (!isUploadFile) {
+      options.header['Content-Type'] = 'application/json'
+    }
+
+    options.header['source-client'] = 'miniapp'
+
+    // 5. 添加token 请求头标识
     if (token) {
-      options.header = {
-        ...options.header,
-        Authorization: `Bearer ${token}`,
-      }
+      options.header['Authorization'] = `Bearer ${token}`
     }
   },
 }

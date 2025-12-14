@@ -10,7 +10,7 @@ export interface UpdateProfilePayload {
 export const updateProfile = (data: UpdateProfilePayload) => {
   return http({
     url: '/user/profile',
-    method: 'PATCH',
+    method: 'POST',
     data,
   })
 }
