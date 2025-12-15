@@ -16,17 +16,10 @@ const nicknamePopupRef = ref<any>()
 const isLogin = computed(() => Boolean(memberStore.profile?.token))
 const userInfo = computed(() => memberStore.profile)
 const displayName = computed(() => memberStore.profile?.nickname || '朋友')
-const baseURL =
-  import.meta.env.MODE === 'development' ? 'http://localhost:10000' : 'https://xklandlxy.art'
-const normalizeUrl = (url?: string | null) => {
-  if (!url || url.trim() === '') return ''
-  if (/^https?:\/\//i.test(url)) return url
-  if (url.startsWith('/')) return `${baseURL}${url}`
-  return `${baseURL}/${url}`
-}
 
 const avatarSrc = computed(() => {
-  const url = normalizeUrl(userInfo.value?.avatar_url)
+  const url = userInfo.value?.avatar_url
+  console.log('avatar_url:', url)
   return url || ''
 })
 
@@ -55,9 +48,9 @@ const goToLogin = () => {
   })
 }
 
-// 上传 base64 到后端
+// 上传 base64 到后端（后端会自动写入用户头像）
 const uploadBase64 = (filename: string, base64: string) => {
-  return http<{ filePath: string; fileUrl?: string; fileUrlAbsolute?: string }>({
+  return http<{ filePath: string; fileUrl?: string; fileUrlAbsolute?: string; user?: any }>({
     url: '/upload/base64',
     method: 'POST',
     data: { filename, base64: encodeURIComponent(base64) },
@@ -85,8 +78,6 @@ const onChooseAvatar = async (e: any) => {
     if (!token) {
       throw new Error('未登录，请先登录')
     }
-
-    console.log('准备上传头像，URL:', uploadUrl, 'filePath:', avatarUrl)
 
     // 使用 uni.uploadFile 直接上传微信临时文件到 /user/profile
     const uploadRes = await new Promise<any>((resolve, reject) => {
@@ -119,14 +110,19 @@ const onChooseAvatar = async (e: any) => {
     })
 
     // 从响应中获取更新后的用户信息，包含 avatar_url
-    const updatedAvatarUrl = uploadRes.data?.avatar_url
-    if (updatedAvatarUrl) {
-      // 更新本地状态
+    const updatedUser = uploadRes.data
+    const updatedAvatarUrl = updatedUser?.avatar_url
+    if (updatedUser) {
+      // 更新本地状态（保留 token/openid 等原有字段）
       memberStore.setProfile({
         ...memberStore.profile,
-        avatar_url: updatedAvatarUrl,
+        ...updatedUser,
       })
-      uni.showToast({ title: '头像已更新', icon: 'success' })
+      if (updatedAvatarUrl) {
+        uni.showToast({ title: '头像已更新', icon: 'success' })
+      } else {
+        uni.showToast({ title: '资料已更新', icon: 'success' })
+      }
     } else {
       throw new Error('上传失败：未获取到头像地址')
     }
@@ -139,7 +135,7 @@ const onChooseAvatar = async (e: any) => {
 }
 
 const updateAvatar = async (avatar_url: string) => {
-  const normalized = normalizeUrl(avatar_url)
+  const normalized = avatar_url
   await updateProfile({ avatar_url: normalized })
   memberStore.setProfile({
     ...memberStore.profile,
@@ -165,10 +161,28 @@ const chooseAndUploadImage = async (sourceType: Array<'album' | 'camera'>) => {
     const uploadRes = await uploadBase64(`avatar.${ext}`, dataUrl)
     const serverUrl =
       uploadRes.data?.fileUrlAbsolute || uploadRes.data?.fileUrl || uploadRes.data?.filePath
+    const updatedUser = uploadRes.data?.user
+
+    if (updatedUser?.avatar_url) {
+      memberStore.setProfile({
+        ...memberStore.profile,
+        ...updatedUser,
+      })
+      uni.showToast({ title: '头像已更新', icon: 'success' })
+      return
+    }
+
     if (!serverUrl) throw new Error('上传失败')
+    // 兜底：仅当后端未返回用户信息时再调用 profile 更新接口
     await updateAvatar(serverUrl)
   } catch (error: any) {
     console.error(error)
+    // token 失效时强制登录
+    if (/token/i.test(error?.message || '')) {
+      memberStore.clearProfile()
+      uni.navigateTo({ url: '/pages/login/login' })
+      return
+    }
     uni.showToast({ title: error?.message || '上传失败', icon: 'none' })
   } finally {
     uploading.value = false
