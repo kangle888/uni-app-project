@@ -45,88 +45,23 @@ const handleGetUserInfo = async (e: any) => {
   }
 
   loading.value = true
-
-  try {
-    // 1. 获取微信登录凭证 code
-    const loginRes = await new Promise<UniApp.LoginRes>((resolve, reject) => {
-      uni.login({
-        provider: 'weixin',
-        success: resolve,
-        fail: reject,
-      })
+  // 1. 获取微信登录凭证 code
+  const loginRes = await new Promise<UniApp.LoginRes>((resolve, reject) => {
+    uni.login({
+      provider: 'weixin',
+      success: resolve,
+      fail: reject,
     })
-    console.log('微信登录凭证:', loginRes)
-    if (!loginRes.code) {
-      throw new Error('获取登录凭证失败')
-    }
-
-    // 2. 调用后端登录接口
-    const res = await wechatLogin({
-      code: loginRes.code,
-      userInfo: e.detail.userInfo,
-    })
-
-    // 3. 保存用户信息到 store
-    if (res.code === 200 && res.data) {
-      memberStore.setProfile({
-        id: res.data.id,
-        openid: res.data.openid,
-        nickname: res.data.nickname,
-        avatar_url: res.data.avatar_url,
-        phone: res.data.phone,
-        token: res.data.token,
-      })
-
-      uni.showToast({
-        title: '登录成功',
-        icon: 'success',
-      })
-
-      // 4. 检查是否有待加入的房间邀请码
-      const pendingCode = memberStore.pendingInviteCode
-      if (pendingCode) {
-        // 有待加入的房间，自动加入
-        try {
-          await joinRoom({ inviteCode: pendingCode })
-          uni.showToast({
-            title: '登录成功，已自动加入房间',
-            icon: 'success',
-          })
-          memberStore.clearPendingInviteCode()
-        } catch (error: any) {
-          console.error('自动加入房间失败:', error)
-          // 加入失败不影响登录，清除待加入码
-          memberStore.clearPendingInviteCode()
-        }
-      } else {
-        uni.showToast({
-          title: '登录成功',
-          icon: 'success',
-        })
-      }
-
-      // 5. 跳转到首页
-      setTimeout(
-        () => {
-          uni.switchTab({
-            url: '/pages/index/index',
-          })
-        },
-        pendingCode ? 2000 : 1500,
-      )
-    } else {
-      throw new Error(res.message || '登录失败')
-    }
-  } catch (error: any) {
-    console.error('登录失败:', error)
-    uni.showToast({
-      title: error.message || '登录失败，请重试',
-      icon: 'none',
-      duration: 2000,
-    })
-  } finally {
-    loading.value = false
+  })
+  console.log('微信登录凭证:', loginRes)
+  if (!loginRes.code) {
+    throw new Error('获取登录凭证失败')
   }
+  setTimeout(() => {
+    uni.switchTab({
+      url: '/pages/index/index',
+    })
+  }, 2000)
 }
 </script>
 

@@ -59,12 +59,14 @@ const uploadBase64 = (filename: string, base64: string) => {
 
 // 处理微信头像选择（新方案：open-type="chooseAvatar"）
 const onChooseAvatar = async (e: any) => {
+  console.log(e, '-------------')
   if (!isLogin.value) {
     goToLogin()
     return
   }
 
   const avatarUrl = e.detail.avatarUrl
+
   if (!avatarUrl) return
 
   try {

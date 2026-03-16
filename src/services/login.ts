@@ -29,7 +29,7 @@ export interface WechatLoginResult {
  */
 export const wechatLogin = (params: WechatLoginParams) => {
   return http<WechatLoginResult>({
-    url: '/login/wechat',
+    url: '/auth/wechat',
     method: 'POST',
     data: params,
   })
