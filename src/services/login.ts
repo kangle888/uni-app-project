@@ -34,3 +34,25 @@ export const wechatLogin = (params: WechatLoginParams) => {
     data: params,
   })
 }
+
+/**
+ * 手机号密码登录
+ */
+export const phoneLogin = (data: any) => {
+  return http<any>({
+    url: '/auth/login',
+    method: 'POST',
+    data,
+  })
+}
+
+/**
+ * 手机号注册
+ */
+export const phoneRegister = (data: any) => {
+  return http<any>({
+    url: '/auth/register',
+    method: 'POST',
+    data,
+  })
+}

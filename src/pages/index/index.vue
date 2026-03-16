@@ -1,1147 +1,578 @@
-<script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
-import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
-import { useMemberStore } from '@/stores'
-import {
-  createRoom,
-  fetchRooms,
-  joinRoom,
-  generateRoomQRCode,
-  deleteRoom,
-  leaveRoom,
-  type RoomSummary,
-  type RoomDetail,
-} from '@/services/room'
-
-const memberStore = useMemberStore()
-const rooms = ref<RoomSummary[]>([])
-const loading = ref(false)
-const creating = ref(false)
-const joining = ref(false)
-const createForm = reactive({ name: '' })
-const joinForm = reactive({ inviteCode: '' })
-const createPopupRef = ref<any>(null)
-const joinPopupRef = ref<any>(null)
-const qrCodePopupRef = ref<any>(null)
-const createdRoom = ref<RoomDetail | null>(null)
-const qrCodeImage = ref<string>('')
-const sharingRoom = ref<RoomSummary | null>(null) // 当前要分享的房间
-const swipeIndex = ref<number>(-1)
-const selectedRoomId = ref<string>('') // 当前选中房间（用于删除/退出后重置）
-const touchStartX = ref<number>(0)
-const touchStartY = ref<number>(0)
-const currentSwipeRoomId = ref<string>('') // 当前滑动的房间ID
-
-const isLogin = computed(() => Boolean(memberStore.profile?.token))
-const displayName = computed(() => memberStore.profile?.nickname || '朋友')
-const inviteCode = computed(() => {
-  // 优先使用正在分享的房间的邀请码，否则使用刚创建的房间
-  return sharingRoom.value?.invite_code || createdRoom.value?.room.invite_code || ''
-})
-const sharingRoomName = computed(() => {
-  return sharingRoom.value?.name || createdRoom.value?.room.name || ''
-})
-
-const fetchRoomList = async () => {
-  if (!isLogin.value) return
-  loading.value = true
-  try {
-    const res = await fetchRooms()
-    rooms.value = res.data ?? []
-  } catch (error) {
-    console.error(error)
-    uni.showToast({ title: '获取房间失败', icon: 'none' })
-  } finally {
-    loading.value = false
-    uni.stopPullDownRefresh()
-  }
-}
-
-const goLogin = () => {
-  uni.navigateTo({ url: '/pages/login/login' })
-}
-
-const openCreatePopup = () => {
-  if (!isLogin.value) {
-    goLogin()
-    return
-  }
-  createPopupRef.value?.open?.('center')
-}
-
-const openJoinPopup = () => {
-  if (!isLogin.value) {
-    goLogin()
-    return
-  }
-  joinPopupRef.value?.open?.('center')
-}
-
-const closeCreatePopup = () => {
-  createPopupRef.value?.close?.()
-}
-
-const closeJoinPopup = () => {
-  joinPopupRef.value?.close?.()
-}
-
-const handleCreateRoom = async () => {
-  const name = createForm.name.trim()
-  if (!name) {
-    uni.showToast({ title: '请输入房间名称', icon: 'none' })
-    return
-  }
-  creating.value = true
-  try {
-    const res = await createRoom({ name })
-    createdRoom.value = res.data
-    createForm.name = ''
-    closeCreatePopup()
-    await fetchRoomList()
-    // 生成二维码
-    await generateQRCode()
-    // 显示二维码弹窗
-    qrCodePopupRef.value?.open?.('center')
-  } catch (error) {
-    console.error(error)
-  } finally {
-    creating.value = false
-  }
-}
-
-// 复制邀请码
-const copyInviteCode = () => {
-  if (!inviteCode.value) return
-  uni.setClipboardData({
-    data: inviteCode.value,
-    success: () => {
-      uni.showToast({ title: '邀请码已复制', icon: 'success' })
-    },
-  })
-}
-
-// 分享到微信好友（非微信小程序平台使用）
-const shareToWechat = () => {
-  // #ifndef MP-WEIXIN
-  // 其他平台提示
-  uni.showToast({
-    title: '请使用右上角分享功能',
-    icon: 'none',
-  })
-  // #endif
-}
-
-// 关闭二维码弹窗
-const closeQRCodePopup = () => {
-  qrCodePopupRef.value?.close?.()
-  createdRoom.value = null
-  sharingRoom.value = null
-  qrCodeImage.value = ''
-}
-
-const removeRoomLocally = (roomId: string) => {
-  rooms.value = rooms.value.filter((r) => r.id !== roomId)
-  if (selectedRoomId.value === roomId) {
-    selectedRoomId.value = rooms.value[0]?.id || ''
-  }
-  // 如果删除的是当前滑动的房间，重置滑动状态
-  if (currentSwipeRoomId.value === roomId) {
-    currentSwipeRoomId.value = ''
-  }
-}
-
-// 触摸开始
-const handleTouchStart = (e: any, roomId: string) => {
-  touchStartX.value = e.touches[0].clientX
-  touchStartY.value = e.touches[0].clientY
-}
-
-// 触摸移动
-const handleTouchMove = (e: any, roomId: string) => {
-  const touchX = e.touches[0].clientX
-  const touchY = e.touches[0].clientY
-  const deltaX = touchX - touchStartX.value
-  const deltaY = touchY - touchStartY.value
-
-  // 如果横向滑动距离大于纵向滑动距离，且向左滑动超过50px，显示删除按钮
-  if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < -50) {
-    // 关闭其他已滑动的项
-    if (currentSwipeRoomId.value && currentSwipeRoomId.value !== roomId) {
-      currentSwipeRoomId.value = ''
-    }
-    currentSwipeRoomId.value = roomId
-  } else if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 50) {
-    // 向右滑动，隐藏删除按钮
-    if (currentSwipeRoomId.value === roomId) {
-      currentSwipeRoomId.value = ''
-    }
-  }
-}
-
-// 触摸结束
-const handleTouchEnd = () => {
-  // 触摸结束时的逻辑
-}
-
-// 点击卡片，关闭滑动或跳转详情
-const handleCardTap = (room: RoomSummary) => {
-  // 如果当前项已滑动，点击时关闭滑动
-  if (currentSwipeRoomId.value === room.id) {
-    currentSwipeRoomId.value = ''
-    return
-  }
-  // 如果其他项已滑动，先关闭
-  if (currentSwipeRoomId.value) {
-    currentSwipeRoomId.value = ''
-    return
-  }
-  // 跳转到详情页
-  goRoomDetail(room)
-}
-
-const confirmDeleteOrLeave = (room: RoomSummary) => {
-  const isCreator = room.creator_id === memberStore.profile?.id
-  const title = isCreator ? '删除房间' : '退出房间'
-  const content = isCreator
-    ? '删除后房间及数据将不可恢复，确认删除？'
-    : '退出后将不再看到该房间，确认退出？'
-
-  uni.showModal({
-    title,
-    content,
-    success: async (res) => {
-      if (!res.confirm) return
-      try {
-        if (isCreator) {
-          await deleteRoom(room.id)
-        } else {
-          await leaveRoom(room.id)
-        }
-        uni.showToast({ title: isCreator ? '已删除' : '已退出', icon: 'success' })
-        removeRoomLocally(room.id)
-      } catch (error: any) {
-        uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
-      }
-    },
-  })
-}
-
-// 处理扫码进入（通过 URL 参数进入的情况）
-onLoad((options) => {
-  // 如果通过 URL 参数进入（如分享链接），options 中会包含 inviteCode
-  if (options?.inviteCode) {
-    const code = String(options.inviteCode).trim().toUpperCase()
-    if (code.length === 8) {
-      if (isLogin.value) {
-        // 已登录，直接填充并打开加入弹窗
-        joinForm.inviteCode = code
-        setTimeout(() => {
-          openJoinPopup()
-        }, 500)
-      } else {
-        // 未登录，保存邀请码并跳转登录
-        memberStore.setPendingInviteCode(code)
-        setTimeout(() => {
-          goLogin()
-        }, 500)
-      }
-    }
-  }
-})
-
-const handleJoinRoom = async () => {
-  const inviteCode = joinForm.inviteCode.trim().toUpperCase()
-  if (inviteCode.length !== 8) {
-    uni.showToast({ title: '邀请码需为8位字母或数字', icon: 'none' })
-    return
-  }
-  joining.value = true
-  try {
-    await joinRoom({ inviteCode })
-    uni.showToast({ title: '加入成功', icon: 'success' })
-    joinForm.inviteCode = ''
-    closeJoinPopup()
-    await fetchRoomList()
-  } catch (error) {
-    console.error(error)
-  } finally {
-    joining.value = false
-  }
-}
-
-const goRoomDetail = (room: RoomSummary) => {
-  uni.navigateTo({
-    url: `/pages/room/detail?roomId=${room.id}`,
-  })
-}
-
-// 显示房间二维码（用于分享已有房间）
-const showRoomQRCode = async (room: RoomSummary, event?: any) => {
-  // 阻止事件冒泡，避免触发卡片点击
-  if (event) {
-    event.stopPropagation()
-  }
-
-  sharingRoom.value = room
-  createdRoom.value = null // 清空创建的房间信息
-
-  // 生成二维码
-  await generateQRCode()
-  // 显示二维码弹窗
-  qrCodePopupRef.value?.open?.('center')
-}
-
-// 修改生成二维码函数，使用后端生成微信小程序码
-const generateQRCode = async () => {
-  const code = inviteCode.value
-  if (!code) return
-
-  try {
-    // 调用后端接口生成微信小程序码
-    const res = await generateRoomQRCode({ inviteCode: code })
-    if (res.data?.qrCode) {
-      // 后端返回的是 base64 格式的图片
-      qrCodeImage.value = res.data.qrCode
-    } else {
-      throw new Error('生成二维码失败：返回数据为空')
-    }
-  } catch (error: any) {
-    console.error('生成二维码失败:', error)
-    uni.showToast({
-      title: error?.message || '生成二维码失败',
-      icon: 'none',
-      duration: 2000,
-    })
-    qrCodeImage.value = ''
-  }
-}
-
-const formatTime = (value?: string) => {
-  if (!value) return '--'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate(),
-  ).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(
-    date.getMinutes(),
-  ).padStart(2, '0')}`
-}
-
-onShow(() => {
-  if (isLogin.value) {
-    fetchRoomList()
-
-    // 检查是否有待加入的房间邀请码（从扫码进入但未登录的情况）
-    const pendingCode = memberStore.pendingInviteCode
-    if (pendingCode) {
-      const code = String(pendingCode).trim().toUpperCase()
-      if (code.length === 8) {
-        joinForm.inviteCode = code
-        // 自动打开加入房间弹窗
-        setTimeout(() => {
-          openJoinPopup()
-        }, 500)
-      }
-      // 清除待加入码
-      memberStore.clearPendingInviteCode()
-    }
-  }
-})
-
-onPullDownRefresh(() => {
-  fetchRoomList()
-})
-
-watch(
-  () => memberStore.profile?.token,
-  (token) => {
-    if (!token) {
-      rooms.value = []
-    }
-  },
-)
-
-// 微信小程序分享配置
-// #ifdef MP-WEIXIN
-// @ts-ignore
-const onShareAppMessage = () => {
-  const room = sharingRoom.value || createdRoom.value?.room
-  if (room && inviteCode.value) {
-    return {
-      title: `邀请你加入房间：${room.name}`,
-      path: `/pages/index/index?inviteCode=${inviteCode.value}`,
-      imageUrl: qrCodeImage.value || '',
-    }
-  }
-  return {
-    title: '房间账本小程序',
-    path: '/pages/index/index',
-  }
-}
-// #endif
-</script>
-
 <template>
-  <view class="page">
-    <view class="hero-card">
+  <view class="home-page">
+    <!-- Header Area -->
+    <view class="header">
       <view class="greeting">
-        <text class="hello">Hi，{{ displayName }}</text>
-        <text class="subtitle">一起把房间账本管好</text>
+        <text class="title">Campus活动</text>
+        <text class="subtitle">Hi, {{ displayName }} 👋 发现精彩校园生活</text>
       </view>
-      <view class="stats">
-        <view class="stat-item">
-          <text class="stat-value">{{ rooms.length }}</text>
-          <text class="stat-label">房间数量</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-value">{{ isLogin ? '在线' : '未登录' }}</text>
-          <text class="stat-label">登录状态</text>
-        </view>
+      <view class="search-bar">
+        <text class="icon-search">🔍</text>
+        <input
+          class="search-input"
+          type="text"
+          placeholder="搜索你感兴趣的活动..."
+          disabled
+          @tap="handleSearch"
+        />
       </view>
     </view>
 
-    <view v-if="isLogin" class="action-card">
-      <button class="action-btn primary" @tap="openCreatePopup">创建房间</button>
-      <button class="action-btn ghost" @tap="openJoinPopup">加入房间</button>
+    <!-- Carousel Banners -->
+    <view class="banner-section">
+      <swiper
+        class="swiper"
+        circular
+        autoplay
+        :interval="3000"
+        :duration="500"
+        indicator-dots
+        indicator-active-color="#ffffff"
+        indicator-color="rgba(255, 255, 255, 0.4)"
+      >
+        <swiper-item v-for="(item, index) in banners" :key="index">
+          <view class="swiper-item">
+            <image :src="item.image" mode="aspectFill" class="banner-image"></image>
+            <view class="banner-text">
+              <text class="banner-title">{{ item.title }}</text>
+            </view>
+          </view>
+        </swiper-item>
+      </swiper>
     </view>
 
-    <view v-else class="login-tip">
-      <text class="tip-title">登录后即可创建或加入房间</text>
-      <button class="login-btn" type="warn" size="mini" @tap="goLogin">去登录</button>
+    <!-- Quick Navigation Grid -->
+    <view class="quick-nav">
+      <view
+        class="nav-item"
+        v-for="item in categories"
+        :key="item.id"
+        @tap="handleCategory(item.name)"
+      >
+        <view class="icon-box" :style="{ background: item.color }">
+          <text class="icon-text">{{ item.icon }}</text>
+        </view>
+        <text class="nav-name">{{ item.name }}</text>
+      </view>
     </view>
 
-    <view v-if="isLogin" class="room-list-container">
-      <view class="list-header">
-        <text class="title">我的房间</text>
-        <button class="refresh-btn" size="mini" @tap="fetchRoomList" :loading="loading">
-          刷新
-        </button>
+    <!-- Hot Activities List -->
+    <view class="activities-section">
+      <view class="section-header">
+        <text class="section-title">热门活动 🔥</text>
+        <text class="view-all" @tap="handleViewAll">查看全部 ></text>
       </view>
 
-      <view class="room-scroll-view">
-        <view v-if="loading" class="state">
-          <text class="loading-text">加载中...</text>
-        </view>
+      <view class="activity-list">
+        <view
+          class="activity-card"
+          v-for="activity in activities"
+          :key="activity.id"
+          @tap="handleViewDetail(activity)"
+        >
+          <!-- Cover -->
+          <view class="cover-wrapper">
+            <image :src="activity.cover" mode="aspectFill" class="cover-image"></image>
+            <view class="status-badge" :class="activity.statusType">{{ activity.status }}</view>
+          </view>
 
-        <view v-else-if="rooms.length" class="room-list">
-          <view
-            v-for="room in rooms"
-            :key="room.id"
-            class="room-item-wrapper"
-            @touchstart="handleTouchStart($event, room.id)"
-            @touchmove="handleTouchMove($event, room.id)"
-            @touchend="handleTouchEnd"
-          >
-            <view class="room-card-container" :class="{ swiped: currentSwipeRoomId === room.id }">
-              <view class="room-card" @tap="handleCardTap(room)">
-                <view class="room-head">
-                  <view class="room-title-section">
-                    <text class="room-name">{{ room.name }}</text>
-                    <text class="room-tag">{{
-                      room.creator_id === memberStore.profile?.id ? '我创建' : '我加入'
-                    }}</text>
-                  </view>
-                  <button
-                    class="share-room-btn"
-                    size="mini"
-                    type="primary"
-                    @tap.stop="showRoomQRCode(room, $event)"
-                  >
-                    分享
-                  </button>
+          <!-- Info -->
+          <view class="info-wrapper">
+            <text class="activity-title">{{ activity.title }}</text>
+            <view class="activity-meta">
+              <view class="meta-item">
+                <text class="meta-icon">🕒</text>
+                <text class="meta-text">{{ activity.time }}</text>
+              </view>
+              <view class="meta-item">
+                <text class="meta-icon">📍</text>
+                <text class="meta-text">{{ activity.location }}</text>
+              </view>
+              <view class="meta-item">
+                <text class="meta-icon">👤</text>
+                <text class="meta-text"
+                  >{{ activity.joined }}/{{ activity.capacity }} 人已报名</text
+                >
+              </view>
+            </view>
+
+            <!-- Tags & Actions -->
+            <view class="card-footer">
+              <view class="tags">
+                <text class="tag" v-for="(tag, index) in activity.tags" :key="index">{{
+                  tag
+                }}</text>
+              </view>
+              <view class="actions">
+                <view class="action-btn fav-btn" @tap.stop="toggleFavorite(activity)">
+                  <text class="action-icon">{{ activity.isFavorited ? '❤️' : '🤍' }}</text>
                 </view>
-                <view class="room-meta">
-                  <view>
-                    <text class="meta-label">邀请码</text>
-                    <text class="meta-value">{{ room.invite_code }}</text>
-                  </view>
-                  <view>
-                    <text class="meta-label">创建时间</text>
-                    <text class="meta-value">{{ formatTime(room.created_at) }}</text>
-                  </view>
+                <view class="action-btn primary-btn" @tap.stop="handleViewDetail(activity)">
+                  <text>详情</text>
                 </view>
               </view>
             </view>
-            <view class="room-delete-btn" @tap.stop="confirmDeleteOrLeave(room)">
-              <text class="delete-btn-text">{{
-                room.creator_id === memberStore.profile?.id ? '删除' : '退出'
-              }}</text>
-            </view>
           </view>
         </view>
+      </view>
 
-        <view v-else class="state empty">
-          <image class="empty-img" src="/static/images/blank.png" mode="widthFix" />
-          <text class="empty-text">暂时还没有房间，快去组织一个吧</text>
-          <view class="empty-actions">
-            <button size="mini" type="primary" @tap="openCreatePopup">创建房间</button>
-            <button size="mini" plain @tap="openJoinPopup">加入房间</button>
-          </view>
-        </view>
+      <view class="load-more">
+        <text>已经到底啦 ~</text>
       </view>
     </view>
-
-    <uni-popup ref="createPopupRef" type="center" class="my-popup">
-      <view class="popup-card-center">
-        <view class="popup-header-center">
-          <text class="popup-title-center">创建房间</text>
-          <text class="popup-close-icon" @tap="closeCreatePopup">×</text>
-        </view>
-        <view class="popup-content-center">
-          <view class="input-wrapper">
-            <text class="input-label">房间名称</text>
-            <uni-easyinput
-              v-model="createForm.name"
-              placeholder="请输入房间名称"
-              maxlength="20"
-              :styles="{ borderColor: '#e0e0e0' }"
-            />
-            <text class="input-tip">2-20个字符</text>
-          </view>
-        </view>
-        <view class="popup-actions-center">
-          <button class="popup-btn-cancel" @tap="closeCreatePopup">取消</button>
-          <button
-            class="popup-btn-confirm"
-            type="primary"
-            :loading="creating"
-            @tap="handleCreateRoom"
-          >
-            创建
-          </button>
-        </view>
-      </view>
-    </uni-popup>
-
-    <uni-popup ref="joinPopupRef" type="center" class="my-popup">
-      <view class="popup-card-center">
-        <view class="popup-header-center">
-          <text class="popup-title-center">加入房间</text>
-          <text class="popup-close-icon" @tap="closeJoinPopup">×</text>
-        </view>
-        <view class="popup-content-center">
-          <view class="input-wrapper">
-            <text class="input-label">邀请码</text>
-            <uni-easyinput
-              v-model="joinForm.inviteCode"
-              placeholder="请输入8位邀请码"
-              maxlength="8"
-              :styles="{ borderColor: '#e0e0e0' }"
-            />
-            <text class="input-tip">8位字母或数字</text>
-          </view>
-        </view>
-        <view class="popup-actions-center">
-          <button class="popup-btn-cancel" @tap="closeJoinPopup">取消</button>
-          <button class="popup-btn-confirm" type="primary" :loading="joining" @tap="handleJoinRoom">
-            加入
-          </button>
-        </view>
-      </view>
-    </uni-popup>
-
-    <!-- 二维码分享弹窗 -->
-    <uni-popup ref="qrCodePopupRef" type="center">
-      <view class="qr-popup-card">
-        <view class="qr-popup-header">
-          <text class="qr-popup-title">{{ createdRoom ? '房间创建成功' : '分享房间' }}</text>
-          <text class="qr-popup-close" @tap="closeQRCodePopup">×</text>
-        </view>
-        <view class="qr-popup-content">
-          <view class="room-info">
-            <text class="room-name-text">{{ sharingRoomName }}</text>
-            <view class="invite-code-section">
-              <text class="invite-code-label">邀请码</text>
-              <view class="invite-code-box">
-                <text class="invite-code-text">{{ inviteCode }}</text>
-                <button class="copy-btn" size="mini" @tap="copyInviteCode">复制</button>
-              </view>
-            </view>
-          </view>
-
-          <view class="qr-code-section">
-            <text class="qr-code-tip">扫描二维码加入房间</text>
-            <view class="qr-code-wrapper">
-              <image v-if="qrCodeImage" :src="qrCodeImage" mode="aspectFit" class="qr-code-image" />
-              <view v-else class="qr-code-placeholder">
-                <text>二维码生成中...</text>
-              </view>
-            </view>
-          </view>
-        </view>
-        <view class="qr-popup-actions">
-          <!-- #ifdef MP-WEIXIN -->
-          <!-- 使用 open-type="share" 直接触发分享 -->
-          <button class="share-btn" type="primary" open-type="share">分享给好友</button>
-          <!-- #endif -->
-          <!-- #ifndef MP-WEIXIN -->
-          <button class="share-btn" type="primary" @tap="shareToWechat">分享给好友</button>
-          <!-- #endif -->
-          <button class="close-btn" @tap="closeQRCodePopup">完成</button>
-        </view>
-      </view>
-    </uni-popup>
   </view>
 </template>
 
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useMemberStore } from '@/stores'
+import { onShow } from '@dcloudio/uni-app'
+
+const memberStore = useMemberStore()
+const displayName = computed(
+  () => memberStore.profile?.nickname || memberStore.profile?.phone || '同学',
+)
+
+// Ensure user is logged in
+onShow(() => {
+  if (!memberStore.profile?.token) {
+    uni.reLaunch({ url: '/pages/login/login' })
+  }
+})
+
+// --- Mock Data ---
+
+const banners = ref([
+  {
+    id: 1,
+    title: '2026届校园十佳歌手总决赛',
+    image:
+      'https://images.unsplash.com/photo-1540039155732-d68f76e0339d?q=80&w=600&auto=format&fit=crop',
+  },
+  {
+    id: 2,
+    title: '春季校园定向越野公开赛',
+    image:
+      'https://images.unsplash.com/photo-1552674605-15f37018a7a0?q=80&w=600&auto=format&fit=crop',
+  },
+  {
+    id: 3,
+    title: 'AI人工智能创新应用讲座',
+    image:
+      'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=600&auto=format&fit=crop',
+  },
+])
+
+const categories = ref([
+  {
+    id: 1,
+    name: '学术讲座',
+    icon: '📚',
+    color: 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)',
+  },
+  {
+    id: 2,
+    name: '体育竞技',
+    icon: '🏃‍♂️',
+    color: 'linear-gradient(135deg, #84FAB0 0%, #8FD3F4 100%)',
+  },
+  {
+    id: 3,
+    name: '文艺演出',
+    icon: '🎭',
+    color: 'linear-gradient(135deg, #A18CD1 0%, #FBC2EB 100%)',
+  },
+  {
+    id: 4,
+    name: '志愿服务',
+    icon: '🤝',
+    color: 'linear-gradient(135deg, #FCCB90 0%, #D57EEB 100%)',
+  },
+])
+
+const activities = ref([
+  {
+    id: 101,
+    title: '“青春律动” 校园街舞争霸赛',
+    cover:
+      'https://images.unsplash.com/photo-1518834107812-6aed9cecdbb4?q=80&w=400&auto=format&fit=crop',
+    status: '报名中',
+    statusType: 'active',
+    time: '本周五 18:30 - 21:00',
+    location: '大学生活动中心',
+    joined: 120,
+    capacity: 200,
+    tags: ['音乐小镇', '官方认证'],
+    isFavorited: true,
+  },
+  {
+    id: 102,
+    title: '名企学长学姐带你进大厂分享会',
+    cover:
+      'https://images.unsplash.com/photo-1552581234-26160f608093?q=80&w=400&auto=format&fit=crop',
+    status: '即将开始',
+    statusType: 'warning',
+    time: '明天 14:00 - 16:30',
+    location: '图书馆第一学术报告厅',
+    joined: 280,
+    capacity: 300,
+    tags: ['讲座', '求职就业'],
+    isFavorited: false,
+  },
+  {
+    id: 103,
+    title: '环保社：周末净滩志愿公益行',
+    cover:
+      'https://images.unsplash.com/photo-1618477461853-cf6ed80fca18?q=80&w=400&auto=format&fit=crop',
+    status: '已满员',
+    statusType: 'disabled',
+    time: '本周日 08:00 - 12:00',
+    location: '南门滨海湾公园',
+    joined: 50,
+    capacity: 50,
+    tags: ['公益', '户外'],
+    isFavorited: false,
+  },
+])
+
+// --- Methods ---
+
+const handleSearch = () => {
+  uni.showToast({ title: '搜索功能开发中', icon: 'none' })
+}
+
+const handleCategory = (name: string) => {
+  uni.showToast({ title: `点击分类：${name}`, icon: 'none' })
+}
+
+const handleViewAll = () => {
+  uni.showToast({ title: '查看全部活动', icon: 'none' })
+}
+
+const handleViewDetail = (activity: any) => {
+  uni.navigateTo({ url: `/pages/activity-detail/activity-detail?id=${activity.id}` })
+}
+
+const toggleFavorite = (activity: any) => {
+  activity.isFavorited = !activity.isFavorited
+  uni.showToast({
+    title: activity.isFavorited ? '已收藏' : '已取消收藏',
+    icon: 'success',
+    duration: 1000,
+  })
+}
+</script>
+
 <style lang="scss" scoped>
-.my-popup {
-  ::v-deep(.uni-popup__wrapper) {
-    display: flex;
-    justify-content: center !important;
-  }
-}
-
-.page {
+.home-page {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 24rpx;
-  background: linear-gradient(180deg, #e6f0ff 0%, #f7f9ff 240rpx);
-  box-sizing: border-box;
+  background-color: #f7f9fc;
+  padding-bottom: 40rpx;
 }
 
-.hero-card {
-  background: linear-gradient(180deg, #eef4ff 0%, #ffffff 75%);
-  color: #222;
-  border-radius: 32rpx;
-  padding: 32rpx 28rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 28rpx;
-  box-shadow: 0 18rpx 36rpx rgba(77, 118, 255, 0.12);
-}
-
-.greeting .hello {
-  font-size: 38rpx;
-  font-weight: 700;
-}
-
-.greeting .subtitle {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 28rpx;
-  color: #768099;
-}
-
-.stats {
-  display: flex;
-  justify-content: space-between;
-  gap: 16rpx;
-}
-
-.stat-item {
-  flex: 1;
-  padding: 20rpx;
-  background: #f5f8ff;
-  border-radius: 20rpx;
-}
-
-.stat-value {
-  display: block;
-  font-size: 42rpx;
-  font-weight: 700;
-}
-
-.stat-label {
-  display: block;
-  font-size: 24rpx;
-  color: #8a8fa6;
-}
-
-.action-card {
-  margin-top: 32rpx;
-  display: flex;
-  gap: 24rpx;
-}
-
-.action-btn {
-  flex: 1;
-  border-radius: 20rpx;
-  padding: 28rpx 0;
-  font-size: 30rpx;
-  font-weight: 500;
-  border: none;
-}
-
-.action-btn.primary {
-  background: linear-gradient(135deg, #27ba9b, #1f8ef1);
+/* Header Area */
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 100rpx 40rpx 40rpx;
+  border-bottom-left-radius: 40rpx;
+  border-bottom-right-radius: 40rpx;
   color: #fff;
-}
+  margin-bottom: -60rpx; /* Pulled up to let banner overlap */
 
-.action-btn.ghost {
-  background: #f5f7fb;
-  color: #1f8ef1;
-}
-
-.login-tip {
-  margin: 32rpx 0;
-  padding: 28rpx;
-  border-radius: 24rpx;
-  background: #fffbe6;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 28rpx;
-  color: #8c6c1a;
-}
-
-.room-list-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  margin-top: 32rpx;
-}
-
-.list-header {
-  margin-bottom: 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-}
-
-.title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #222;
-}
-
-.refresh-btn {
-  border-radius: 999rpx;
-}
-
-.room-scroll-view {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.room-list {
-  display: flex;
-  flex-direction: column;
-  gap: 24rpx;
-  padding-bottom: 32rpx; // 底部留白
-}
-
-.room-item-wrapper {
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 24rpx;
-}
-
-.room-card-container {
-  position: relative;
-  transition: transform 0.3s ease;
-  width: 100%;
-  z-index: 2;
-  background: #fff;
-  border-radius: 24rpx;
-}
-
-.room-card-container.swiped {
-  transform: translateX(-140rpx);
-}
-
-.room-card {
-  display: flex;
-  flex-direction: column;
-  gap: 24rpx;
-  background: #fff;
-  border-radius: 24rpx;
-  padding: 24rpx;
-  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.06);
-}
-
-.room-delete-btn {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 140rpx;
-  background-color: #f56c6c;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0 24rpx 24rpx 0;
-  z-index: 1;
-}
-
-.delete-btn-text {
-  color: #fff;
-  font-size: 28rpx;
-  font-weight: 500;
-}
-
-.room-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
-}
-
-.room-title-section {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-}
-
-.share-room-btn {
-  border-radius: 20rpx;
-  padding: 12rpx 24rpx;
-  font-size: 24rpx;
-  white-space: nowrap;
-}
-
-.room-name {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.room-tag {
-  font-size: 24rpx;
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  background: rgba(39, 186, 155, 0.12);
-  color: #27ba9b;
-}
-
-.room-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 26rpx;
-  color: #666;
-  flex-wrap: wrap;
-  gap: 16rpx;
-}
-
-.meta-label {
-  display: block;
-  margin-bottom: 8rpx;
-  font-size: 24rpx;
-  color: #999;
-}
-
-.meta-value {
-  font-weight: 500;
-  color: #333;
-}
-
-.state {
-  margin: 120rpx 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.loading-text {
-  font-size: 28rpx;
-  color: #999;
-}
-
-.state.empty {
-  flex-direction: column;
-  gap: 24rpx;
-  text-align: center;
-  color: #888;
-}
-
-.empty-img {
-  width: 320rpx;
-  height: 320rpx;
-}
-
-.empty-actions {
-  display: flex;
-  gap: 20rpx;
-}
-
-// 中间弹窗样式 - 美化UI
-.popup-card-center {
-  width: 640rpx;
-  max-width: 100%;
-  background: #fff;
-  border-radius: 32rpx;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 24rpx 64rpx rgba(0, 0, 0, 0.2);
-  animation: popupFadeIn 0.3s ease-out;
-}
-
-@keyframes popupFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9) translateY(-20rpx);
+  .greeting {
+    margin-bottom: 30rpx;
+    .title {
+      display: block;
+      font-size: 48rpx;
+      font-weight: bold;
+      margin-bottom: 10rpx;
+    }
+    .subtitle {
+      display: block;
+      font-size: 28rpx;
+      color: rgba(255, 255, 255, 0.9);
+    }
   }
 
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
+  .search-bar {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border-radius: 40rpx;
+    padding: 0 30rpx;
+    height: 80rpx;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+
+    .icon-search {
+      font-size: 32rpx;
+      margin-right: 16rpx;
+    }
+
+    .search-input {
+      flex: 1;
+      font-size: 28rpx;
+      color: #fff;
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.7);
+      }
+    }
   }
 }
 
-.popup-header-center {
+/* Banner Section */
+.banner-section {
+  padding: 0 30rpx;
+  margin-top: 20rpx;
+
+  .swiper {
+    height: 300rpx;
+    border-radius: 20rpx;
+    overflow: hidden;
+    transform: translateY(0); /* For overlap context */
+    box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.15);
+
+    .swiper-item {
+      width: 100%;
+      height: 100%;
+      position: relative;
+
+      .banner-image {
+        width: 100%;
+        height: 100%;
+        background-color: #eee;
+      }
+
+      .banner-text {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 40rpx 30rpx 20rpx;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 100%);
+
+        .banner-title {
+          color: #fff;
+          font-size: 32rpx;
+          font-weight: bold;
+          text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.5);
+        }
+      }
+    }
+  }
+}
+
+/* Quick Navigation */
+.quick-nav {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 48rpx 40rpx 32rpx;
-  border-bottom: 1rpx solid #f0f1f5;
-  background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
-}
-
-.popup-title-center {
-  font-size: 38rpx;
-  font-weight: 600;
-  color: #222;
-  letter-spacing: 1rpx;
-}
-
-.popup-close-icon {
-  font-size: 44rpx;
-  color: #999;
-  line-height: 1;
-  width: 56rpx;
-  height: 56rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.3s;
-}
-
-.popup-close-icon:active {
-  color: #666;
-  background: #f5f7fb;
-}
-
-.popup-content-center {
-  padding: 48rpx 40rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 32rpx;
-}
-
-.input-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-}
-
-.input-label {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 8rpx;
-}
-
-.input-tip {
-  font-size: 24rpx;
-  color: #999;
-  margin-top: 4rpx;
-  padding-left: 4rpx;
-}
-
-.popup-actions-center {
-  display: flex;
-  gap: 24rpx;
-  padding: 0 40rpx 40rpx;
-}
-
-.popup-btn-cancel {
-  flex: 1;
-  height: 96rpx;
-  border-radius: 24rpx;
-  background: #f5f7fb;
-  color: #666;
-  font-size: 32rpx;
-  font-weight: 500;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
-}
-
-.popup-btn-cancel:active {
-  background: #e8eaed;
-  transform: scale(0.98);
-}
-
-.popup-btn-confirm {
-  flex: 1;
-  height: 96rpx;
-  border-radius: 24rpx;
-  background: linear-gradient(135deg, #27ba9b 0%, #1f8ef1 100%);
-  color: #fff;
-  font-size: 32rpx;
-  font-weight: 600;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-  box-shadow: 0 8rpx 24rpx rgba(39, 186, 155, 0.3);
-}
-
-.popup-btn-confirm:active {
-  opacity: 0.9;
-  transform: scale(0.98);
-  box-shadow: 0 4rpx 12rpx rgba(39, 186, 155, 0.25);
-}
-
-.qr-popup-card {
-  width: 600rpx;
+  justify-content: space-around;
+  padding: 50rpx 20rpx 30rpx;
   background: #fff;
-  border-radius: 32rpx;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  margin: 30rpx 30rpx 0;
+  border-radius: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.03);
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    .icon-box {
+      width: 96rpx;
+      height: 96rpx;
+      border-radius: 32rpx;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 16rpx;
+      box-shadow: 0 8rpx 16rpx rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s;
+
+      &:active {
+        transform: scale(0.9);
+      }
+
+      .icon-text {
+        font-size: 48rpx;
+      }
+    }
+
+    .nav-name {
+      font-size: 26rpx;
+      color: #333;
+      font-weight: 500;
+    }
+  }
 }
 
-.qr-popup-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 32rpx;
-  border-bottom: 1rpx solid #f0f1f5;
-}
+/* Activities List */
+.activities-section {
+  padding: 40rpx 30rpx;
 
-.qr-popup-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #222;
-}
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 30rpx;
 
-.qr-popup-close {
-  font-size: 48rpx;
-  color: #999;
-  line-height: 1;
-  width: 48rpx;
-  height: 48rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+    .section-title {
+      font-size: 36rpx;
+      font-weight: bold;
+      color: #222;
+    }
 
-.qr-popup-content {
-  padding: 32rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 32rpx;
-}
+    .view-all {
+      font-size: 26rpx;
+      color: #999;
+    }
+  }
 
-.room-info {
-  display: flex;
-  flex-direction: column;
-  gap: 24rpx;
-}
+  .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 30rpx;
 
-.room-name-text {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: #222;
-  text-align: center;
-}
+    .activity-card {
+      background: #fff;
+      border-radius: 24rpx;
+      overflow: hidden;
+      box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.04);
+      transition: transform 0.2s;
 
-.invite-code-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
+      &:active {
+        transform: scale(0.98);
+      }
 
-.invite-code-label {
-  font-size: 24rpx;
-  color: #666;
-  text-align: center;
-}
+      .cover-wrapper {
+        position: relative;
+        height: 280rpx;
+        width: 100%;
 
-.invite-code-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16rpx;
-  padding: 20rpx;
-  background: #f5f7fb;
-  border-radius: 16rpx;
-}
+        .cover-image {
+          width: 100%;
+          height: 100%;
+          background-color: #f0f0f0;
+        }
 
-.invite-code-text {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #27ba9b;
-  letter-spacing: 4rpx;
-}
+        .status-badge {
+          position: absolute;
+          top: 20rpx;
+          right: 20rpx;
+          padding: 6rpx 20rpx;
+          border-radius: 30rpx;
+          font-size: 24rpx;
+          font-weight: bold;
+          color: #fff;
+          backdrop-filter: blur(4px);
 
-.copy-btn {
-  border-radius: 8rpx;
-}
+          &.active {
+            background: rgba(39, 186, 155, 0.85); /* Green */
+          }
+          &.warning {
+            background: rgba(250, 173, 20, 0.85); /* Orange */
+          }
+          &.disabled {
+            background: rgba(153, 153, 153, 0.85); /* Gray */
+          }
+        }
+      }
 
-.qr-code-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16rpx;
-}
+      .info-wrapper {
+        padding: 24rpx;
 
-.qr-code-tip {
-  font-size: 24rpx;
-  color: #999;
-}
+        .activity-title {
+          font-size: 32rpx;
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 20rpx;
+          display: block;
+          line-height: 1.4;
+        }
 
-.qr-code-wrapper {
-  width: 400rpx;
-  height: 400rpx;
-  background: #fff;
-  border: 2rpx solid #f0f1f5;
-  border-radius: 16rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20rpx;
-}
+        .activity-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 12rpx;
+          margin-bottom: 24rpx;
 
-.qr-code-image {
-  width: 100%;
-  height: 100%;
-}
+          .meta-item {
+            display: flex;
+            align-items: center;
 
-.qr-code-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #999;
-  font-size: 24rpx;
-}
+            .meta-icon {
+              font-size: 24rpx;
+              margin-right: 12rpx;
+            }
 
-.qr-popup-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  padding: 32rpx;
-  border-top: 1rpx solid #f0f1f5;
-}
+            .meta-text {
+              font-size: 26rpx;
+              color: #666;
+            }
+          }
+        }
 
-.share-btn {
-  width: 100%;
-  border-radius: 20rpx;
-  padding: 28rpx 0;
-  font-size: 30rpx;
-  background: linear-gradient(135deg, #27ba9b, #1f8ef1);
-}
+        .card-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 20rpx;
+          border-top: 1rpx dashed #eee;
 
-.close-btn {
-  width: 100%;
-  border-radius: 20rpx;
-  padding: 24rpx 0;
-  font-size: 28rpx;
-  background: #f5f7fb;
-  color: #666;
-  border: none;
+          .tags {
+            display: flex;
+            gap: 12rpx;
+            flex-wrap: wrap;
+
+            .tag {
+              font-size: 22rpx;
+              color: #667eea;
+              background: rgba(102, 126, 234, 0.1);
+              padding: 4rpx 16rpx;
+              border-radius: 8rpx;
+            }
+          }
+
+          .actions {
+            display: flex;
+            gap: 16rpx;
+
+            .action-btn {
+              padding: 10rpx 24rpx;
+              border-radius: 30rpx;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+
+              &.fav-btn {
+                background: #f5f7fa;
+                padding: 10rpx 20rpx;
+              }
+
+              &.primary-btn {
+                background: linear-gradient(to right, #667eea, #764ba2);
+                color: #fff;
+                font-size: 26rpx;
+                font-weight: bold;
+              }
+
+              &:active {
+                opacity: 0.8;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .load-more {
+    text-align: center;
+    padding: 40rpx 0;
+
+    text {
+      font-size: 24rpx;
+      color: #ccc;
+    }
+  }
 }
 </style>

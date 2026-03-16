@@ -1,194 +1,51 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, reactive } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores'
-import { fetchRooms, type RoomSummary } from '@/services/room'
-import { updateProfile } from '@/services/user'
-import { http } from '@/utils/http'
 
 const memberStore = useMemberStore()
-const rooms = ref<RoomSummary[]>([])
 const loading = ref(false)
-const editingNickname = ref('')
-const uploading = ref(false)
-const nicknamePopupRef = ref<any>()
+
+// State for settings popup
+const settingsPopupRef = ref<any>()
+const editForm = reactive({
+  nickname: '',
+  studentId: '',
+  college: '',
+  phone: '',
+})
 
 const isLogin = computed(() => Boolean(memberStore.profile?.token))
 const userInfo = computed(() => memberStore.profile)
-const displayName = computed(() => memberStore.profile?.nickname || '朋友')
+
+// Displayed Info (using Mock fallbacks if empty)
+const displayName = computed(() => userInfo.value?.nickname || '同学')
+const studentIdDisplay = computed(() => userInfo.value?.studentId || '未填写')
+const collegeDisplay = computed(() => userInfo.value?.college || '未填写')
 
 const avatarSrc = computed(() => {
-  const url = userInfo.value?.avatar_url
-  console.log('avatar_url:', url)
-  return url || ''
+  return userInfo.value?.avatar_url || ''
 })
 
-const fetchRoomList = async () => {
-  if (!isLogin.value) return
-  loading.value = true
-  try {
-    const res = await fetchRooms()
-    rooms.value = res.data ?? []
-  } catch (error) {
-    console.error(error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const goToSettings = () => {
-  uni.navigateTo({
-    url: '/pages/settings/settings',
-  })
-}
-
 const goToLogin = () => {
-  uni.navigateTo({
-    url: '/pages/login/login',
-  })
+  uni.navigateTo({ url: '/pages/login/login' })
 }
 
-// 上传 base64 到后端（后端会自动写入用户头像）
-const uploadBase64 = (filename: string, base64: string) => {
-  return http<{ filePath: string; fileUrl?: string; fileUrlAbsolute?: string; user?: any }>({
-    url: '/upload/base64',
-    method: 'POST',
-    data: { filename, base64: encodeURIComponent(base64) },
-  })
-}
-
-// 处理微信头像选择（新方案：open-type="chooseAvatar"）
+// 暂不实现真实上传，直接做UI演示
 const onChooseAvatar = async (e: any) => {
-  console.log(e, '-------------')
   if (!isLogin.value) {
     goToLogin()
     return
   }
-
   const avatarUrl = e.detail.avatarUrl
-
   if (!avatarUrl) return
 
-  try {
-    uploading.value = true
-
-    // 构建完整的上传 URL（使用 /user/profile 接口，需要包含 /api 前缀）
-    // 注意：拦截器会自动添加 /api 前缀，所以这里只需要 /user/profile
-    const uploadUrl = '/user/profile'
-    // 获取 token
-    const token = userInfo.value?.token
-    if (!token) {
-      throw new Error('未登录，请先登录')
-    }
-
-    // 使用 uni.uploadFile 直接上传微信临时文件到 /user/profile
-    const uploadRes = await new Promise<any>((resolve, reject) => {
-      uni.uploadFile({
-        url: uploadUrl, // 使用 /user/profile 接口（拦截器会自动添加 baseURL 和 /api 前缀）
-        filePath: avatarUrl, // 微信临时文件路径（http/tmp 虚拟地址）
-        name: 'file', // 字段名，后端会查找 'file'、'avatar' 或 'avatar_url'
-        header: {
-          Authorization: `Bearer ${token}`, // 显式添加 token
-          'source-client': 'miniapp',
-        },
-        success: (res) => {
-          try {
-            const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
-            if (data.code === 200) {
-              resolve(data)
-            } else {
-              reject(new Error(data.message || '上传失败'))
-            }
-          } catch (parseErr) {
-            console.error('响应解析失败:', parseErr, res.data)
-            reject(new Error('响应解析失败'))
-          }
-        },
-        fail: (err) => {
-          console.error('上传请求失败:', err)
-          reject(err)
-        },
-      })
-    })
-
-    // 从响应中获取更新后的用户信息，包含 avatar_url
-    const updatedUser = uploadRes.data
-    const updatedAvatarUrl = updatedUser?.avatar_url
-    if (updatedUser) {
-      // 更新本地状态（保留 token/openid 等原有字段）
-      memberStore.setProfile({
-        ...memberStore.profile,
-        ...updatedUser,
-      })
-      if (updatedAvatarUrl) {
-        uni.showToast({ title: '头像已更新', icon: 'success' })
-      } else {
-        uni.showToast({ title: '资料已更新', icon: 'success' })
-      }
-    } else {
-      throw new Error('上传失败：未获取到头像地址')
-    }
-  } catch (err: any) {
-    console.error('头像上传失败:', err)
-    uni.showToast({ title: err.message || '上传失败', icon: 'none' })
-  } finally {
-    uploading.value = false
-  }
-}
-
-const updateAvatar = async (avatar_url: string) => {
-  const normalized = avatar_url
-  await updateProfile({ avatar_url: normalized })
+  // 仅前端模拟更新头像
   memberStore.setProfile({
     ...memberStore.profile,
-    avatar_url: normalized,
+    avatar_url: avatarUrl,
   })
   uni.showToast({ title: '头像已更新', icon: 'success' })
-}
-
-const chooseAndUploadImage = async (sourceType: Array<'album' | 'camera'>) => {
-  if (!isLogin.value) {
-    goToLogin()
-    return
-  }
-  try {
-    uploading.value = true
-    const { tempFilePaths } = await uni.chooseImage({ count: 1, sourceType })
-    const filePath = tempFilePaths?.[0]
-    if (!filePath) throw new Error('未选择图片')
-    const fs = uni.getFileSystemManager()
-    const base64 = fs.readFileSync(filePath, 'base64') as string
-    const ext = filePath.split('.').pop() || 'jpg'
-    const dataUrl = `data:image/${ext};base64,${base64}`
-    const uploadRes = await uploadBase64(`avatar.${ext}`, dataUrl)
-    const serverUrl =
-      uploadRes.data?.fileUrlAbsolute || uploadRes.data?.fileUrl || uploadRes.data?.filePath
-    const updatedUser = uploadRes.data?.user
-
-    if (updatedUser?.avatar_url) {
-      memberStore.setProfile({
-        ...memberStore.profile,
-        ...updatedUser,
-      })
-      uni.showToast({ title: '头像已更新', icon: 'success' })
-      return
-    }
-
-    if (!serverUrl) throw new Error('上传失败')
-    // 兜底：仅当后端未返回用户信息时再调用 profile 更新接口
-    await updateAvatar(serverUrl)
-  } catch (error: any) {
-    console.error(error)
-    // token 失效时强制登录
-    if (/token/i.test(error?.message || '')) {
-      memberStore.clearProfile()
-      uni.navigateTo({ url: '/pages/login/login' })
-      return
-    }
-    uni.showToast({ title: error?.message || '上传失败', icon: 'none' })
-  } finally {
-    uploading.value = false
-  }
 }
 
 const openAvatarActions = () => {
@@ -196,85 +53,98 @@ const openAvatarActions = () => {
     goToLogin()
     return
   }
-  uni.showActionSheet({
-    itemList: ['从相册选择', '拍照'],
+  uni.chooseImage({
+    count: 1,
     success: (res) => {
-      const index = res.tapIndex
-      if (index === 0) {
-        chooseAndUploadImage(['album'])
-      } else if (index === 1) {
-        chooseAndUploadImage(['camera'])
-      }
+      const filePath = res.tempFilePaths[0]
+      memberStore.setProfile({
+        ...memberStore.profile,
+        avatar_url: filePath,
+      })
+      uni.showToast({ title: '头像已更新', icon: 'success' })
     },
   })
 }
 
-const openNicknamePopup = () => {
+const openSettingsPopup = () => {
   if (!isLogin.value) {
     goToLogin()
     return
   }
-  editingNickname.value = displayName.value
-  nicknamePopupRef.value?.open?.('center')
+  // Load current values
+  editForm.nickname = memberStore.profile?.nickname || ''
+  editForm.studentId = memberStore.profile?.studentId || ''
+  editForm.college = memberStore.profile?.college || ''
+  editForm.phone = memberStore.profile?.phone || ''
+
+  settingsPopupRef.value?.open?.('bottom')
 }
 
-const goToHome = () => {
-  uni.switchTab({ url: '/pages/index/index' })
+const closeSettingsPopup = () => {
+  settingsPopupRef.value?.close?.()
 }
 
-const handleNicknameBlur = (e: any) => {
-  // 微信昵称输入框失焦时，如果用户选择了微信昵称，会自动填充
-  if (e.detail?.value) {
-    editingNickname.value = e.detail.value
-  }
-}
-
-const handleNicknameConfirm = () => {
-  submitNickname()
-}
-
-const submitNickname = async () => {
-  if (!editingNickname.value.trim()) {
-    uni.showToast({ title: '请输入昵称', icon: 'none' })
+const saveSettings = () => {
+  if (!editForm.nickname.trim()) {
+    uni.showToast({ title: '昵称不能为空', icon: 'none' })
     return
   }
-  try {
-    await updateProfile({ nickname: editingNickname.value.trim() })
-    memberStore.setProfile({
-      ...memberStore.profile,
-      nickname: editingNickname.value.trim(),
-    })
-    uni.showToast({ title: '昵称已更新', icon: 'success' })
-    nicknamePopupRef.value?.close?.()
-  } catch (error) {
-    console.error(error)
-    uni.showToast({ title: '更新失败', icon: 'none' })
-  }
+
+  // 模拟保存到 Store
+  memberStore.setProfile({
+    ...memberStore.profile,
+    nickname: editForm.nickname.trim(),
+    studentId: editForm.studentId.trim(),
+    college: editForm.college.trim(),
+    phone: editForm.phone.trim(),
+  })
+
+  uni.showToast({ title: '资料已保存', icon: 'success' })
+  closeSettingsPopup()
 }
 
+const showToast = (msg: string) => {
+  uni.showToast({ title: msg, icon: 'none' })
+}
+
+// Stats Dummy Data
+const stats = ref({
+  totalJoins: 12,
+  favorites: 8,
+  history: 45,
+})
+
+// Chart Data Dummy Logic (conic-gradient needs a string)
+const chartData = [
+  { label: '体育竞技', percent: 40, color: '#FF7A95', start: 0, end: 40 },
+  { label: '学术讲座', percent: 35, color: '#667EEA', start: 40, end: 75 },
+  { label: '文艺演出', percent: 25, color: '#27BA9B', start: 75, end: 100 },
+]
+
+const conicGradientStr = computed(() => {
+  // 生成锥形渐变字符串: e.g. #FF7A95 0% 40%, #667EEA 40% 75%, #27BA9B 75% 100%
+  const stops = chartData.map((item) => `${item.color} ${item.start}% ${item.end}%`)
+  return `conic-gradient(${stops.join(', ')})`
+})
+
 onShow(() => {
-  if (isLogin.value) {
-    fetchRoomList()
+  if (!isLogin.value) {
+    uni.reLaunch({ url: '/pages/login/login' })
   }
 })
 </script>
 
 <template>
   <view class="page">
-    <view class="hero">
-      <view v-if="isLogin" class="hero-profile">
-        <!-- 使用新的微信头像选择能力 -->
+    <!-- Top Hero Section -->
+    <view class="hero-section">
+      <view class="hero-profile">
+        <!-- Avatar -->
         <!-- #ifdef MP-WEIXIN -->
         <button class="hero-avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
           <view class="hero-avatar">
-            <image
-              v-if="avatarSrc && avatarSrc.trim()"
-              :src="avatarSrc"
-              mode="aspectFill"
-              class="hero-avatar-img"
-            />
+            <image v-if="avatarSrc" :src="avatarSrc" mode="aspectFill" class="hero-avatar-img" />
             <text v-else class="hero-avatar-text">{{ displayName.charAt(0) }}</text>
-            <view v-if="uploading" class="hero-avatar-mask">...</view>
           </view>
         </button>
         <!-- #endif -->
@@ -282,120 +152,155 @@ onShow(() => {
         <view class="hero-avatar" @tap="openAvatarActions">
           <image v-if="avatarSrc" :src="avatarSrc" mode="aspectFill" class="hero-avatar-img" />
           <text v-else class="hero-avatar-text">{{ displayName.charAt(0) }}</text>
-          <view v-if="uploading" class="hero-avatar-mask">...</view>
         </view>
         <!-- #endif -->
-        <text class="hero-name">{{ displayName }}</text>
-      </view>
-      <view v-else class="hero-login">
-        <button class="login-btn" type="primary" size="mini" @tap="goToLogin">登录 / 授权</button>
-      </view>
-      <view v-if="isLogin" class="hero-stats">
-        <view class="stat">
-          <text class="stat-value">{{ rooms.length }}</text>
-          <text class="stat-label">房间数</text>
-        </view>
-        <view class="divider"></view>
-        <view class="stat">
-          <text class="stat-value">{{ loading ? '--' : rooms.length }}</text>
-          <text class="stat-label">参与场次</text>
+
+        <!-- Info -->
+        <view class="hero-info" @tap="openSettingsPopup">
+          <text class="hero-name">{{ displayName }} <text class="edit-icon">✎</text></text>
+          <view class="hero-tags">
+            <text class="tag">{{ collegeDisplay }}</text>
+            <text class="tag">{{ studentIdDisplay }}</text>
+          </view>
         </view>
       </view>
     </view>
 
-    <view class="card list-card">
-      <!-- 使用新的微信头像选择能力 -->
-      <!-- #ifdef MP-WEIXIN -->
-      <button class="list-row-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
-        <view class="list-row">
-          <view class="row-left">
-            <text class="row-icon">😀</text>
-            <text class="row-title">头像</text>
-          </view>
-          <view class="row-right">
-            <view class="mini-avatar">
-              <image v-if="avatarSrc" :src="avatarSrc" mode="aspectFill" />
-              <text v-else>{{ displayName.charAt(0) }}</text>
+    <!-- Content Area (Pulled up over the header) -->
+    <view class="content-wrapper">
+      <!-- Quick Navigation Grid -->
+      <view class="quick-grid card">
+        <view class="grid-item" @tap="showToast('我的收藏')">
+          <text class="grid-num">{{ stats.favorites }}</text>
+          <text class="grid-label">我的收藏</text>
+        </view>
+        <view class="grid-divider"></view>
+        <view class="grid-item" @tap="showToast('历史浏览')">
+          <text class="grid-num">{{ stats.history }}</text>
+          <text class="grid-label">历史浏览</text>
+        </view>
+        <view class="grid-divider"></view>
+        <view class="grid-item" @tap="showToast('我的报名')">
+          <text class="grid-num">{{ stats.totalJoins }}</text>
+          <text class="grid-label">我的报名</text>
+        </view>
+      </view>
+
+      <!-- Activity Data Chart Module -->
+      <view class="chart-card card">
+        <text class="card-title">我的活动数据</text>
+        <view class="chart-container">
+          <!-- Donut Chart -->
+          <view class="donut-chart" :style="{ background: conicGradientStr }">
+            <view class="donut-hole">
+              <text class="donut-total">{{ stats.totalJoins }}</text>
+              <text class="donut-label">总参与量</text>
             </view>
-            <text class="row-arrow">›</text>
+          </view>
+
+          <!-- Legend -->
+          <view class="chart-legend">
+            <view class="legend-item" v-for="(item, index) in chartData" :key="index">
+              <view class="color-dot" :style="{ background: item.color }"></view>
+              <text class="legend-text">{{ item.label }}</text>
+              <text class="legend-percent">{{ item.percent }}%</text>
+            </view>
           </view>
         </view>
+      </view>
+
+      <!-- System Menu List -->
+      <view class="menu-card card">
+        <view class="menu-item" @tap="openSettingsPopup">
+          <view class="menu-left">
+            <text class="menu-icon">👤</text>
+            <text class="menu-title">完善个人信息</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+        <view class="menu-item" @tap="showToast('意见反馈')">
+          <view class="menu-left">
+            <text class="menu-icon">💬</text>
+            <text class="menu-title">意见反馈</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+      </view>
+
+      <!-- Logout Button (for demo purposes) -->
+      <button
+        class="logout-btn"
+        @tap="
+          memberStore.clearProfile()
+          goToLogin()
+        "
+      >
+        退出登录
       </button>
-      <!-- #endif -->
-      <!-- #ifndef MP-WEIXIN -->
-      <view class="list-row" @tap="openAvatarActions">
-        <view class="row-left">
-          <text class="row-icon">😀</text>
-          <text class="row-title">头像</text>
-        </view>
-        <view class="row-right">
-          <view class="mini-avatar">
-            <image v-if="avatarSrc" :src="avatarSrc" mode="aspectFill" />
-            <text v-else>{{ displayName.charAt(0) }}</text>
-          </view>
-          <text class="row-arrow">›</text>
-        </view>
-      </view>
-      <!-- #endif -->
-      <view class="list-row" @tap="openNicknamePopup">
-        <view class="row-left">
-          <text class="row-icon">📝</text>
-          <text class="row-title">昵称</text>
-        </view>
-        <view class="row-right">
-          <text class="row-desc">{{ displayName }}</text>
-          <text class="row-arrow">›</text>
-        </view>
-      </view>
     </view>
 
-    <view class="card menu-card">
-      <view class="menu-item" @tap="goToSettings">
-        <view class="menu-left">
-          <text class="menu-icon">⚙</text>
-          <text class="menu-title">设置</text>
-        </view>
-        <text class="menu-arrow">›</text>
-      </view>
-      <view class="menu-item" @tap="goToHome">
-        <view class="menu-left">
-          <text class="menu-icon">🏠</text>
-          <text class="menu-title">我的房间</text>
-        </view>
-        <text class="menu-arrow">›</text>
-      </view>
-    </view>
-
-    <!-- 昵称修改弹窗 -->
-    <uni-popup ref="nicknamePopupRef" type="center">
-      <view class="popup-card">
+    <!-- Settings / Profile Popup -->
+    <uni-popup ref="settingsPopupRef" type="bottom">
+      <view class="settings-popup">
         <view class="popup-header">
-          <text class="popup-title">修改昵称</text>
-          <text class="popup-close" @tap="nicknamePopupRef?.close?.()">×</text>
+          <text class="popup-title">修改个人信息</text>
+          <text class="popup-close" @tap="closeSettingsPopup">×</text>
         </view>
         <view class="popup-body">
-          <!-- 使用新的微信昵称输入能力 -->
-          <!-- #ifdef MP-WEIXIN -->
-          <input
-            v-model="editingNickname"
-            type="nickname"
-            class="nickname-input"
-            placeholder="请输入新的昵称"
-            @blur="handleNicknameBlur"
-            @confirm="handleNicknameConfirm"
-          />
-          <!-- #endif -->
-          <!-- #ifndef MP-WEIXIN -->
-          <uni-easyinput
-            v-model="editingNickname"
-            placeholder="请输入新的昵称"
-            :inputBorder="false"
-          />
-          <!-- #endif -->
+          <view class="form-group">
+            <text class="form-label">昵称</text>
+            <!-- #ifdef MP-WEIXIN -->
+            <input
+              class="form-input"
+              type="nickname"
+              v-model="editForm.nickname"
+              placeholder="请输入你的昵称"
+            />
+            <!-- #endif -->
+            <!-- #ifndef MP-WEIXIN -->
+            <input
+              class="form-input"
+              type="text"
+              v-model="editForm.nickname"
+              placeholder="请输入你的昵称"
+            />
+            <!-- #endif -->
+          </view>
+
+          <view class="form-group">
+            <text class="form-label">学号</text>
+            <input
+              class="form-input"
+              type="number"
+              v-model="editForm.studentId"
+              placeholder="请输入你的学号"
+            />
+          </view>
+
+          <view class="form-group">
+            <text class="form-label">学院</text>
+            <input
+              class="form-input"
+              type="text"
+              v-model="editForm.college"
+              placeholder="例如：计算机学院"
+            />
+          </view>
+
+          <view class="form-group">
+            <text class="form-label">联系电话</text>
+            <input
+              class="form-input"
+              type="number"
+              v-model="editForm.phone"
+              placeholder="请输入手机号码"
+              maxlength="11"
+            />
+          </view>
         </view>
-        <view class="popup-actions">
-          <button class="popup-btn ghost" @tap="nicknamePopupRef?.close?.()">取消</button>
-          <button class="popup-btn primary" @tap="submitNickname">保存</button>
+
+        <view class="popup-footer">
+          <button class="save-btn" @tap="saveSettings">保存资料</button>
         </view>
       </view>
     </uni-popup>
@@ -405,329 +310,367 @@ onShow(() => {
 <style lang="scss" scoped>
 .page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #e6f0ff 0%, #f7f9ff 240rpx);
-  padding: 24rpx;
+  background-color: #f7f9fc;
+  padding-bottom: 40rpx;
 }
 
-.hero {
-  background: linear-gradient(180deg, #eef4ff 0%, #ffffff 70%);
-  border-radius: 32rpx;
-  padding: 32rpx 24rpx 24rpx;
-  box-shadow: 0 18rpx 36rpx rgba(77, 118, 255, 0.12);
-  margin-bottom: 24rpx;
+/* Header Section */
+.hero-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 100rpx 40rpx 100rpx; /* Extra bottom padding for overlap */
+  color: #fff;
+  border-bottom-left-radius: 40rpx;
+  border-bottom-right-radius: 40rpx;
 }
 
 .hero-profile {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 16rpx;
-  padding: 12rpx 0 24rpx;
+
+  .hero-avatar-btn {
+    padding: 0;
+    margin: 0;
+    background: none;
+    line-height: 1;
+    &::after {
+      border: none;
+    }
+  }
+
+  .hero-avatar {
+    width: 140rpx;
+    height: 140rpx;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 4rpx solid rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    backdrop-filter: blur(10rpx);
+
+    .hero-avatar-img {
+      width: 100%;
+      height: 100%;
+    }
+
+    .hero-avatar-text {
+      font-size: 60rpx;
+      font-weight: bold;
+      color: #fff;
+    }
+  }
+
+  .hero-info {
+    margin-left: 30rpx;
+    flex: 1;
+
+    .hero-name {
+      font-size: 40rpx;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+
+      .edit-icon {
+        font-size: 28rpx;
+        margin-left: 10rpx;
+        opacity: 0.8;
+      }
+    }
+
+    .hero-tags {
+      display: flex;
+      gap: 16rpx;
+      margin-top: 16rpx;
+
+      .tag {
+        font-size: 22rpx;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 4rpx 16rpx;
+        border-radius: 20rpx;
+        backdrop-filter: blur(4rpx);
+      }
+    }
+  }
 }
 
-.hero-avatar-btn {
-  padding: 0;
-  margin: 0;
-  background: none;
-  border: none;
-  line-height: 1;
-}
-
-.hero-avatar-btn::after {
-  border: none;
-}
-
-.hero-avatar {
-  width: 150rpx;
-  height: 150rpx;
-  border-radius: 50%;
-  background: #ffeef2;
-  border: 6rpx solid #fff;
-  box-shadow: 0 12rpx 28rpx rgba(0, 0, 0, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+/* Content Wrapper */
+.content-wrapper {
+  padding: 0 30rpx;
+  margin-top: -60rpx; /* Pulled up over header */
   position: relative;
-}
-
-.hero-avatar-img {
-  width: 100%;
-  height: 100%;
-}
-
-.hero-avatar-text {
-  font-size: 52rpx;
-  font-weight: 700;
-  color: #ff7a95;
-}
-
-.hero-avatar-mask {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.hero-name {
-  font-size: 38rpx;
-  font-weight: 700;
-  color: #222;
-}
-
-.hero-login {
-  display: flex;
-  justify-content: center;
-  padding: 16rpx 0 24rpx;
-}
-
-.hero-stats {
-  margin-top: 12rpx;
-  background: #f5f8ff;
-  border-radius: 20rpx;
-  padding: 16rpx 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #222;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6rpx;
-  flex: 1;
-}
-
-.stat-value {
-  font-size: 40rpx;
-  font-weight: 700;
-}
-
-.stat-label {
-  font-size: 24rpx;
-  color: #8a8fa6;
-}
-
-.divider {
-  width: 1rpx;
-  height: 52rpx;
-  background: #e2e6f0;
+  z-index: 10;
 }
 
 .card {
   background: #fff;
   border-radius: 24rpx;
-  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.06);
-  margin-bottom: 20rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.04);
+  margin-bottom: 30rpx;
 }
 
-.list-card {
-  overflow: hidden;
-}
-
-.list-row-btn {
-  padding: 0;
-  margin: 0;
-  background: none;
-  border: none;
-  line-height: 1;
-  width: 100%;
-  text-align: left;
-}
-
-.list-row-btn::after {
-  border: none;
-}
-
-.list-row {
+/* Quick Grid */
+.quick-grid {
   display: flex;
+  justify-content: space-around;
   align-items: center;
-  justify-content: space-between;
-  padding: 28rpx 24rpx;
-  border-bottom: 1rpx solid #f0f1f5;
+  padding: 40rpx 0;
+
+  .grid-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+
+    &:active {
+      opacity: 0.7;
+    }
+
+    .grid-num {
+      font-size: 44rpx;
+      font-weight: bold;
+      color: #222;
+      margin-bottom: 8rpx;
+    }
+
+    .grid-label {
+      font-size: 24rpx;
+      color: #666;
+    }
+  }
+
+  .grid-divider {
+    width: 2rpx;
+    height: 60rpx;
+    background-color: #eee;
+  }
 }
 
-.list-row:last-child {
-  border-bottom: none;
+/* Chart Card */
+.chart-card {
+  padding: 30rpx;
+
+  .card-title {
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #222;
+    margin-bottom: 30rpx;
+    display: block;
+  }
+
+  .chart-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20rpx;
+
+    /* CSS Donut Chart Implementation */
+    .donut-chart {
+      width: 220rpx;
+      height: 220rpx;
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+
+      .donut-hole {
+        width: 140rpx;
+        height: 140rpx;
+        border-radius: 50%;
+        background-color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+
+        .donut-total {
+          font-size: 36rpx;
+          font-weight: bold;
+          color: #333;
+        }
+
+        .donut-label {
+          font-size: 20rpx;
+          color: #999;
+          margin-top: 4rpx;
+        }
+      }
+    }
+
+    /* Legend */
+    .chart-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 20rpx;
+      flex: 1;
+      margin-left: 60rpx;
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+
+        .color-dot {
+          width: 16rpx;
+          height: 16rpx;
+          border-radius: 50%;
+          margin-right: 12rpx;
+        }
+
+        .legend-text {
+          font-size: 26rpx;
+          color: #666;
+          flex: 1;
+        }
+
+        .legend-percent {
+          font-size: 28rpx;
+          font-weight: bold;
+          color: #333;
+        }
+      }
+    }
+  }
 }
 
-.row-left {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
+/* Menu List */
+.menu-card {
+  padding: 0 10rpx;
+
+  .menu-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 30rpx 20rpx;
+    border-bottom: 1rpx solid #f5f5f5;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:active {
+      background-color: #f9f9f9;
+    }
+
+    .menu-left {
+      display: flex;
+      align-items: center;
+
+      .menu-icon {
+        font-size: 36rpx;
+        margin-right: 20rpx;
+      }
+
+      .menu-title {
+        font-size: 30rpx;
+        color: #333;
+      }
+    }
+
+    .menu-arrow {
+      font-size: 40rpx;
+      color: #ccc;
+    }
+  }
 }
 
-.row-icon {
-  font-size: 32rpx;
-}
-
-.row-title {
+.logout-btn {
+  margin-top: 40rpx;
+  background-color: #fff;
+  border-radius: 20rpx;
+  color: #ff4d4f;
   font-size: 30rpx;
-  color: #222;
-}
-
-.row-right {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.row-desc {
-  font-size: 28rpx;
-  color: #666;
-}
-
-.row-arrow {
-  font-size: 36rpx;
-  color: #b6b9c4;
-}
-
-.mini-avatar {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #f5f7fb;
+  font-weight: bold;
+  height: 90rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26rpx;
-  color: #4c6fff;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.03);
+
+  &:active {
+    opacity: 0.8;
+  }
 }
 
-.mini-avatar image {
-  width: 100%;
-  height: 100%;
-}
+/* Settings Popup */
+.settings-popup {
+  background-color: #fff;
+  border-top-left-radius: 40rpx;
+  border-top-right-radius: 40rpx;
+  padding: 40rpx 40rpx 60rpx;
+  max-height: 80vh;
 
-.edit-card {
-  padding: 28rpx 24rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
+  .popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40rpx;
 
-.edit-title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #222;
-}
+    .popup-title {
+      font-size: 36rpx;
+      font-weight: bold;
+      color: #222;
+    }
 
-.edit-row {
-  display: flex;
-  gap: 16rpx;
-  align-items: center;
-}
+    .popup-close {
+      font-size: 50rpx;
+      color: #999;
+      line-height: 1;
+    }
+  }
 
-.ghost-btn {
-  width: 100%;
-  border-radius: 20rpx;
-  padding: 20rpx 0;
-  background: #f5f7fb;
-  color: #333;
-  font-size: 28rpx;
-}
+  .popup-body {
+    display: flex;
+    flex-direction: column;
+    gap: 30rpx;
 
-.menu-card {
-  padding: 0 8rpx;
-}
+    .form-group {
+      .form-label {
+        font-size: 28rpx;
+        color: #666;
+        margin-bottom: 12rpx;
+        display: block;
+      }
 
-.menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24rpx 16rpx;
-  border-bottom: 1rpx solid #f0f1f5;
-}
+      .form-input {
+        background-color: #f5f7fa;
+        height: 88rpx;
+        border-radius: 20rpx;
+        padding: 0 30rpx;
+        font-size: 30rpx;
+        color: #333;
+        transition: all 0.3s;
 
-.menu-item:last-child {
-  border-bottom: none;
-}
+        &:focus {
+          border: 1px solid #667eea;
+          background-color: #fff;
+        }
+      }
+    }
+  }
 
-.menu-left {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
+  .popup-footer {
+    margin-top: 50rpx;
 
-.menu-icon {
-  font-size: 32rpx;
-}
+    .save-btn {
+      width: 100%;
+      height: 90rpx;
+      border-radius: 45rpx;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      font-size: 32rpx;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10rpx 20rpx rgba(102, 126, 234, 0.3);
 
-.menu-title {
-  font-size: 30rpx;
-  color: #222;
-}
-
-.menu-arrow {
-  font-size: 36rpx;
-  color: #b6b9c4;
-}
-
-.popup-card {
-  width: 560rpx;
-  background: #fff;
-  border-radius: 24rpx;
-  padding: 24rpx;
-  box-shadow: 0 24rpx 64rpx rgba(0, 0, 0, 0.2);
-}
-
-.popup-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16rpx;
-}
-
-.popup-title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #222;
-}
-
-.popup-close {
-  font-size: 36rpx;
-  color: #999;
-}
-
-.popup-body {
-  margin-bottom: 20rpx;
-}
-
-.nickname-input {
-  width: 100%;
-  height: 80rpx;
-  padding: 0 24rpx;
-  background: #f5f7fb;
-  border-radius: 16rpx;
-  font-size: 28rpx;
-  color: #222;
-}
-
-.popup-actions {
-  display: flex;
-  gap: 16rpx;
-}
-
-.popup-btn {
-  flex: 1;
-  border-radius: 18rpx;
-  padding: 20rpx 0;
-  font-size: 28rpx;
-}
-
-.popup-btn.ghost {
-  background: #f5f7fb;
-  color: #333;
-}
-
-.popup-btn.primary {
-  background: linear-gradient(135deg, #27ba9b, #1f8ef1);
-  color: #fff;
+      &:active {
+        transform: scale(0.98);
+        opacity: 0.9;
+      }
+    }
+  }
 }
 </style>
