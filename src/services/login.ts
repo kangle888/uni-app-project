@@ -36,23 +36,33 @@ export const wechatLogin = (params: WechatLoginParams) => {
 }
 
 /**
- * 手机号密码登录
+ * 用户名密码登录
  */
-export const phoneLogin = (data: any) => {
+export const userLogin = (data: { username: string; password: string }) => {
   return http<any>({
-    url: '/auth/login',
+    url: '/sysUser/login',
     method: 'POST',
     data,
   })
 }
 
 /**
- * 手机号注册
+ * 用户名注册
  */
-export const phoneRegister = (data: any) => {
+export const userRegister = (data: { username: string; password: string }) => {
   return http<any>({
-    url: '/auth/register',
+    url: '/sysUser/register',
     method: 'POST',
     data,
+  })
+}
+
+/**
+ *  获取当前登录用户信息
+ */
+export const getCurrentUserInfo = () => {
+  return http<any>({
+    url: '/sysUser/getCurrentUserInfo',
+    method: 'GET',
   })
 }

@@ -10,18 +10,19 @@ const loading = ref(false)
 const settingsPopupRef = ref<any>()
 const editForm = reactive({
   nickname: '',
-  studentId: '',
-  college: '',
-  phone: '',
+  mobile: '',
+  email: '',
+  college_name: '',
+  sex: '',
 })
 
 const isLogin = computed(() => Boolean(memberStore.profile?.token))
+const displayName = computed(
+  () => memberStore.profile?.nickname || memberStore.profile?.username || '同学',
+)
 const userInfo = computed(() => memberStore.profile)
 
 // Displayed Info (using Mock fallbacks if empty)
-const displayName = computed(() => userInfo.value?.nickname || '同学')
-const studentIdDisplay = computed(() => userInfo.value?.studentId || '未填写')
-const collegeDisplay = computed(() => userInfo.value?.college || '未填写')
 
 const avatarSrc = computed(() => {
   return userInfo.value?.avatar_url || ''
@@ -71,11 +72,12 @@ const openSettingsPopup = () => {
     goToLogin()
     return
   }
-  // Load current values
+  // Load curreconst openSettingsPopup = () => {
   editForm.nickname = memberStore.profile?.nickname || ''
-  editForm.studentId = memberStore.profile?.studentId || ''
-  editForm.college = memberStore.profile?.college || ''
-  editForm.phone = memberStore.profile?.phone || ''
+  editForm.mobile = memberStore.profile?.mobile || ''
+  editForm.email = memberStore.profile?.email || ''
+  editForm.college_name = memberStore.profile?.college_name || ''
+  editForm.sex = memberStore.profile?.sex?.toString() || ''
 
   settingsPopupRef.value?.open?.('bottom')
 }
@@ -90,13 +92,14 @@ const saveSettings = () => {
     return
   }
 
-  // 模拟保存到 Store
+  // 模拟保存到 Store (实际应该调用后端更新接口)
   memberStore.setProfile({
     ...memberStore.profile,
     nickname: editForm.nickname.trim(),
-    studentId: editForm.studentId.trim(),
-    college: editForm.college.trim(),
-    phone: editForm.phone.trim(),
+    mobile: editForm.mobile.trim(),
+    email: editForm.email.trim(),
+    college_name: editForm.college_name.trim(),
+    sex: editForm.sex,
   })
 
   uni.showToast({ title: '资料已保存', icon: 'success' })
@@ -159,8 +162,8 @@ onShow(() => {
         <view class="hero-info" @tap="openSettingsPopup">
           <text class="hero-name">{{ displayName }} <text class="edit-icon">✎</text></text>
           <view class="hero-tags">
-            <text class="tag">{{ collegeDisplay }}</text>
-            <text class="tag">{{ studentIdDisplay }}</text>
+            <text class="tag">{{ memberStore.profile?.college_name || '未设置学院' }}</text>
+            <text class="tag">{{ memberStore.profile?.mobile || '暂无手机号' }}</text>
           </view>
         </view>
       </view>
@@ -240,7 +243,12 @@ onShow(() => {
     </view>
 
     <!-- Settings / Profile Popup -->
-    <uni-popup ref="settingsPopupRef" type="bottom">
+    <uni-popup
+      ref="settingsPopupRef"
+      type="bottom"
+      background-color="#fff"
+      border-radius="40rpx 40rpx 0 0"
+    >
       <view class="settings-popup">
         <view class="popup-header">
           <text class="popup-title">修改个人信息</text>
@@ -268,13 +276,29 @@ onShow(() => {
           </view>
 
           <view class="form-group">
-            <text class="form-label">学号</text>
+            <text class="form-label">手机号</text>
             <input
               class="form-input"
               type="number"
-              v-model="editForm.studentId"
-              placeholder="请输入你的学号"
+              v-model="editForm.mobile"
+              placeholder="请输入你的手机号"
+              maxlength="11"
             />
+          </view>
+
+          <view class="form-group">
+            <text class="form-label">电子邮箱</text>
+            <input
+              class="form-input"
+              type="text"
+              v-model="editForm.email"
+              placeholder="请输入电子邮箱"
+            />
+          </view>
+
+          <view class="form-group">
+            <text class="form-label">性别 (选填)</text>
+            <input class="form-input" type="text" v-model="editForm.sex" placeholder="男 / 女" />
           </view>
 
           <view class="form-group">
@@ -282,19 +306,8 @@ onShow(() => {
             <input
               class="form-input"
               type="text"
-              v-model="editForm.college"
+              v-model="editForm.college_name"
               placeholder="例如：计算机学院"
-            />
-          </view>
-
-          <view class="form-group">
-            <text class="form-label">联系电话</text>
-            <input
-              class="form-input"
-              type="number"
-              v-model="editForm.phone"
-              placeholder="请输入手机号码"
-              maxlength="11"
             />
           </view>
         </view>
@@ -595,10 +608,7 @@ onShow(() => {
 
 /* Settings Popup */
 .settings-popup {
-  background-color: #fff;
-  border-top-left-radius: 40rpx;
-  border-top-right-radius: 40rpx;
-  padding: 40rpx 40rpx 60rpx;
+  padding: 40rpx 40rpx calc(60rpx + env(safe-area-inset-bottom));
   max-height: 80vh;
 
   .popup-header {

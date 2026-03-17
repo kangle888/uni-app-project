@@ -28,12 +28,11 @@
       <!-- Form -->
       <view class="form-content">
         <view class="input-group">
-          <text class="icon icon-phone"></text>
+          <text class="icon icon-user"></text>
           <input
-            type="number"
-            v-model="formData.phone"
-            placeholder="请输入手机号"
-            maxlength="11"
+            type="text"
+            v-model="formData.username"
+            placeholder="请输入用户名"
             class="input-item"
           />
         </view>
@@ -41,11 +40,15 @@
         <view class="input-group">
           <text class="icon icon-lock">🔒</text>
           <input
-            type="password"
+            type="text"
+            :password="!showPassword"
             v-model="formData.password"
             placeholder="请输入密码"
             class="input-item"
           />
+          <text class="icon-eye" @tap="showPassword = !showPassword">
+            {{ showPassword ? '👁️' : '🙈' }}
+          </text>
         </view>
 
         <!-- Action Button -->
@@ -54,14 +57,14 @@
         </button>
 
         <!-- Wechat Login Divider -->
-        <view class="divider" v-if="currentTab === 'login'">
+        <!-- <view class="divider" v-if="currentTab === 'login'">
           <text class="line"></text>
           <text class="text">其他登录方式</text>
           <text class="line"></text>
-        </view>
+        </view> -->
 
         <!-- Wechat Login Button -->
-        <button
+        <!-- <button
           v-if="currentTab === 'login'"
           class="wechat-btn"
           open-type="getUserInfo"
@@ -69,7 +72,7 @@
         >
           <text class="wechat-icon">🟢</text>
           <text>微信快捷登录</text>
-        </button>
+        </button> -->
       </view>
 
       <view class="tips">
@@ -81,25 +84,22 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { phoneLogin, phoneRegister, wechatLogin } from '@/services/login'
+import { userLogin, userRegister, getCurrentUserInfo } from '@/services/login'
 import { useMemberStore } from '@/stores'
 
 const memberStore = useMemberStore()
 const loading = ref(false)
 const currentTab = ref('login')
+const showPassword = ref(false)
 
 const formData = reactive({
-  phone: '',
+  username: '',
   password: '',
 })
 
 const validateForm = () => {
-  if (!formData.phone) {
-    uni.showToast({ title: '请输入手机号', icon: 'none' })
-    return false
-  }
-  if (!/^1\d{10}$/.test(formData.phone)) {
-    uni.showToast({ title: '手机号格式不正确', icon: 'none' })
+  if (!formData.username) {
+    uni.showToast({ title: '请输入用户名', icon: 'none' })
     return false
   }
   if (!formData.password) {
@@ -120,43 +120,45 @@ const handleSubmit = async () => {
   try {
     let res: any
     if (currentTab.value === 'login') {
-      res = await phoneLogin(formData)
-      // Mock Success Login for now to let user experience UI if backend gives err
-      if (!res) {
-        console.log('Mocking Phone Login fallback:', formData)
-        res = { token: 'mock-token', nickname: '测试用户', phone: formData.phone }
-      }
-      memberStore.setProfile(res)
+      // 1. 发起登录请求获取 Token
+      res = await userLogin(formData)
+      const token = res.token || res.data?.token || res
+
+      // 2. 先存入 Token，否则接下来的 requests (getCurrentUserInfo) 拿不到 Header 里的 Authorization 导致 401
+      memberStore.setProfile({
+        token: token,
+        username: formData.username,
+      })
+
+      // 3. 携带 Token 获取当前登录人详细信息
+      const resUserInfo = await getCurrentUserInfo()
+
+      // 4. 将获取到的详细信息补全并再次存储 (提取 resUserInfo.data 中的实际字段)
+      const userData = resUserInfo.data || {}
+      memberStore.setProfile({
+        ...memberStore.profile,
+        nickname: userData.nickname || formData.username,
+        avatar: userData.avatar || '',
+        mobile: userData.mobile || '',
+        email: userData.email || '',
+        sex: userData.sex || '',
+        college_name: userData.college_name || '',
+      })
+
       uni.showToast({ title: '登录成功', icon: 'success' })
       setTimeout(() => {
         uni.switchTab({ url: '/pages/index/index' })
       }, 1500)
     } else {
-      res = await phoneRegister(formData)
-      // Mock Success Register fallback
-      if (!res) {
-        console.log('Mocking Phone Register fallback:', formData)
-      }
+      await userRegister(formData)
       uni.showToast({ title: '注册成功，请登录', icon: 'success' })
       setTimeout(() => {
         currentTab.value = 'login'
       }, 1500)
     }
   } catch (error: any) {
-    // 降级处理，保证前端UI可以演示
-    console.log('Login/Register error, degrading to mock', error)
-    if (currentTab.value === 'login') {
-      memberStore.setProfile({ token: 'mock-token', nickname: '测试用户', phone: formData.phone })
-      uni.showToast({ title: '模拟登录成功', icon: 'success' })
-      setTimeout(() => {
-        uni.switchTab({ url: '/pages/index/index' })
-      }, 1500)
-    } else {
-      uni.showToast({ title: '模拟注册成功，请登录', icon: 'success' })
-      setTimeout(() => {
-        currentTab.value = 'login'
-      }, 1500)
-    }
+    console.error('Login/Register error', error)
+    uni.showToast({ title: error.data.message || '操作失败，请重试', icon: 'error' })
   } finally {
     loading.value = false
   }
@@ -219,6 +221,7 @@ const handleWechatLogin = async (e: any) => {
   background: rgba(255, 255, 255, 0.1);
   filter: blur(40rpx);
 }
+
 .login-container::after {
   content: '';
   position: absolute;
@@ -348,6 +351,12 @@ const handleWechatLogin = async (e: any) => {
         height: 100%;
         font-size: 30rpx;
         color: #333;
+      }
+
+      .icon-eye {
+        font-size: 32rpx;
+        padding: 10rpx;
+        color: #999;
       }
     }
 

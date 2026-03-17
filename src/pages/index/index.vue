@@ -134,7 +134,7 @@ const displayName = computed(
 )
 
 // Ensure user is logged in
-onShow(() => {
+onShow(async () => {
   if (!memberStore.profile?.token) {
     uni.reLaunch({ url: '/pages/login/login' })
   }
@@ -277,16 +277,19 @@ const toggleFavorite = (activity: any) => {
   border-bottom-left-radius: 40rpx;
   border-bottom-right-radius: 40rpx;
   color: #fff;
-  margin-bottom: -60rpx; /* Pulled up to let banner overlap */
+  margin-bottom: -60rpx;
+  /* Pulled up to let banner overlap */
 
   .greeting {
     margin-bottom: 30rpx;
+
     .title {
       display: block;
       font-size: 48rpx;
       font-weight: bold;
       margin-bottom: 10rpx;
     }
+
     .subtitle {
       display: block;
       font-size: 28rpx;
@@ -313,6 +316,7 @@ const toggleFavorite = (activity: any) => {
       flex: 1;
       font-size: 28rpx;
       color: #fff;
+
       &::placeholder {
         color: rgba(255, 255, 255, 0.7);
       }
@@ -329,7 +333,8 @@ const toggleFavorite = (activity: any) => {
     height: 300rpx;
     border-radius: 20rpx;
     overflow: hidden;
-    transform: translateY(0); /* For overlap context */
+    transform: translateY(0);
+    /* For overlap context */
     box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.15);
 
     .swiper-item {
@@ -466,13 +471,18 @@ const toggleFavorite = (activity: any) => {
           backdrop-filter: blur(4px);
 
           &.active {
-            background: rgba(39, 186, 155, 0.85); /* Green */
+            background: rgba(39, 186, 155, 0.85);
+            /* Green */
           }
+
           &.warning {
-            background: rgba(250, 173, 20, 0.85); /* Orange */
+            background: rgba(250, 173, 20, 0.85);
+            /* Orange */
           }
+
           &.disabled {
-            background: rgba(153, 153, 153, 0.85); /* Gray */
+            background: rgba(153, 153, 153, 0.85);
+            /* Gray */
           }
         }
       }

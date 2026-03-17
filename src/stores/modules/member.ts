@@ -1,12 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+export interface MemberInfo {
+  token: string
+  username?: string
+  nickname?: string
+  avatar?: string
+  mobile?: string
+  email?: string
+  sex?: string | number
+  college_name?: string
+  [key: string]: any // allow other dynamic fields
+}
+
 // 定义 Store
 export const useMemberStore = defineStore(
   'member',
   () => {
     // 会员信息
-    const profile = ref<any>()
+    const profile = ref<MemberInfo>()
     // 待加入的房间邀请码（扫码进入但未登录时保存）
     const pendingInviteCode = ref<string>('')
 

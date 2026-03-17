@@ -16,7 +16,7 @@ import { useMemberStore } from '@/stores'
 // 使用 import.meta.env.MODE 判断环境（已添加类型声明）http://192.168.1.2:10000
 const baseURL =
   import.meta.env.MODE === 'development'
-    ? 'http://10.76.14.62:8000' // 本地开发用 Node 本地端口
+    ? 'http://192.168.31.42:8080' // 本地开发用 Node 本地端口
     : 'https://xklandlxy.art' // 生产环境用 HTTPS 域名
 
 // 添加请求前拦截器
@@ -25,9 +25,9 @@ const httpInterceptor = {
   invoke(options: UniApp.RequestOptions | UniApp.UploadFileOption) {
     // 1. 非http 开头的请求地址，自动添加前缀
     if (!options.url.startsWith('http')) {
-      // 如果 URL 不是以 /api 开头，则添加 /api 前缀
-      if (!options.url.startsWith('/api')) {
-        options.url = '/api' + options.url
+      // 如果 URL 不是以 /demo 开头，则添加 /demo 前缀
+      if (!options.url.startsWith('/demo')) {
+        options.url = '/demo' + options.url
       }
       options.url = baseURL + options.url
     }
@@ -58,7 +58,7 @@ const httpInterceptor = {
 
     // 5. 添加token 请求头标识
     if (token) {
-      options.header['Authorization'] = `Bearer ${token}`
+      options.header['access-token'] = `${token}`
     }
   },
 }

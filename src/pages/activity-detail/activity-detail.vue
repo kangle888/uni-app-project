@@ -523,14 +523,13 @@ const handleCancelEnroll = () => {
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 120rpx;
+  height: 180rpx;
   background-color: #ffffff;
   box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 40rpx;
-  padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 100;
   box-sizing: border-box;
