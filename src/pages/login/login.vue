@@ -87,7 +87,6 @@ import { ref, reactive } from 'vue'
 import { userLogin, userRegister, getCurrentUserInfo } from '@/services/login'
 import { useMemberStore } from '@/stores'
 
-const memberStore = useMemberStore()
 const loading = ref(false)
 const currentTab = ref('login')
 const showPassword = ref(false)
@@ -119,15 +118,21 @@ const handleSubmit = async () => {
   loading.value = true
   try {
     let res: any
+
+    // 关键修正：将 vue3 reactive Proxy 转换成普通对象
+    // 在 uniapp 真机调试中，直接将 Proxy 传递给 uni.request 进行序列化会导致死循环栈溢出 (Maximum call stack size exceeded)
+    const submitData = { ...formData }
+
     if (currentTab.value === 'login') {
+      const memberStore = useMemberStore()
       // 1. 发起登录请求获取 Token
-      res = await userLogin(formData)
+      res = await userLogin(submitData)
       const token = res.token || res.data?.token || res
 
       // 2. 先存入 Token，否则接下来的 requests (getCurrentUserInfo) 拿不到 Header 里的 Authorization 导致 401
       memberStore.setProfile({
         token: token,
-        username: formData.username,
+        username: submitData.username,
       })
 
       // 3. 携带 Token 获取当前登录人详细信息
@@ -137,7 +142,7 @@ const handleSubmit = async () => {
       const userData = resUserInfo.data || {}
       memberStore.setProfile({
         ...memberStore.profile,
-        nickname: userData.nickname || formData.username,
+        nickname: userData.nickname || submitData.username,
         avatar: userData.avatar || '',
         mobile: userData.mobile || '',
         email: userData.email || '',
@@ -151,7 +156,7 @@ const handleSubmit = async () => {
         uni.switchTab({ url: '/pages/index/index' })
       }, 1500)
     } else {
-      await userRegister(formData)
+      await userRegister(submitData)
       uni.showToast({ title: '注册成功，请登录', icon: 'success' })
       setTimeout(() => {
         currentTab.value = 'login'
@@ -159,7 +164,7 @@ const handleSubmit = async () => {
     }
   } catch (error: any) {
     console.error('Login/Register error', error)
-    uni.showToast({ title: error.data.message || '操作失败，请重试', icon: 'error' })
+    uni.showToast({ title: error?.data?.message || '操作失败，请重试', icon: 'none' })
   } finally {
     loading.value = false
   }

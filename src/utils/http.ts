@@ -16,7 +16,7 @@ import { useMemberStore } from '@/stores'
 // 使用 import.meta.env.MODE 判断环境（已添加类型声明）http://192.168.1.2:10000
 const baseURL =
   import.meta.env.MODE === 'development'
-    ? 'http://localhost:8080' // 本地开发用 Node 本地端口
+    ? 'http://192.168.1.5:8080' // 本地开发用 Node 本地端口
     : 'https://xklandlxy.art' // 生产环境用 HTTPS 域名
 
 // 添加请求前拦截器
@@ -46,6 +46,7 @@ const httpInterceptor = {
     }
 
     // 4. 添加小程序端请求头标识和 token
+    // 在这里懒加载 store，避免引发 uniapp getApp().$vm undefined 报错
     const menberStore = useMemberStore()
     const token = menberStore.profile?.token
 

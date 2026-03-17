@@ -53,12 +53,10 @@ export const useMemberStore = defineStore(
       clearPendingInviteCode,
     }
   },
-  // TODO: 持久化
   {
-    // 这个是网页端配置
-    // persist: true,
-    // 小程序端配置
     persist: {
+      key: 'member-profile',
+      paths: ['profile', 'pendingInviteCode'],
       storage: {
         getItem: (key: string) => {
           return uni.getStorageSync(key)
