@@ -11,13 +11,7 @@
           placeholder="搜索校内活动、讲座、比赛..."
           @confirm="handleSearch"
         />
-        <text
-          class="clear-icon"
-          v-if="searchKeyword"
-          @tap="
-            searchKeyword = ''
-            handleSearch()
-          "
+        <text class="clear-icon" v-if="searchKeyword" @tap=";(searchKeyword = ''), handleSearch()"
           >✖</text
         >
       </view>

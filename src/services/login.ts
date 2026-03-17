@@ -66,3 +66,32 @@ export const getCurrentUserInfo = () => {
     method: 'GET',
   })
 }
+
+/**
+ * 更新用户信息
+ */
+export const updateUserInfo = (data: any) => {
+  return http<any>({
+    url: '/sysUser/updateUser',
+    method: 'POST',
+    data,
+  })
+}
+
+// 更新密码 /demo/sysUser/updatePassword
+export const updatePassword = (data: any) => {
+  return http<any>({
+    url: '/sysUser/updatePassword',
+    method: 'POST',
+    data,
+  })
+}
+
+//重置密码 /demo/sysUser/resetPassword
+export const resetPassword = (data: { userId: string }) => {
+  return http<any>({
+    url: '/sysUser/resetPassword',
+    method: 'GET',
+    data,
+  })
+}

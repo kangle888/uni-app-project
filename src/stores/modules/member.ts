@@ -8,8 +8,9 @@ export interface MemberInfo {
   avatar?: string
   mobile?: string
   email?: string
+  id?: string
   sex?: string | number
-  college_name?: string
+  collegeName?: string
   [key: string]: any // allow other dynamic fields
 }
 

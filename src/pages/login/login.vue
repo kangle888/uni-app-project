@@ -142,7 +142,8 @@ const handleSubmit = async () => {
         mobile: userData.mobile || '',
         email: userData.email || '',
         sex: userData.sex || '',
-        college_name: userData.college_name || '',
+        collegeName: userData.collegeName || '',
+        id: userData.id || '',
       })
 
       uni.showToast({ title: '登录成功', icon: 'success' })

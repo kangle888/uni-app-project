@@ -2,6 +2,7 @@
 import { computed, ref, reactive } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores'
+import { updateUserInfo, resetPassword, updatePassword, getCurrentUserInfo } from '@/services/login'
 
 const memberStore = useMemberStore()
 const loading = ref(false)
@@ -12,8 +13,16 @@ const editForm = reactive({
   nickname: '',
   mobile: '',
   email: '',
-  college_name: '',
+  collegeName: '',
   sex: '',
+})
+
+// State for password popup
+const pwdPopupRef = ref<any>()
+const pwdForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: '',
 })
 
 const isLogin = computed(() => Boolean(memberStore.profile?.token))
@@ -76,7 +85,7 @@ const openSettingsPopup = () => {
   editForm.nickname = memberStore.profile?.nickname || ''
   editForm.mobile = memberStore.profile?.mobile || ''
   editForm.email = memberStore.profile?.email || ''
-  editForm.college_name = memberStore.profile?.college_name || ''
+  editForm.collegeName = memberStore.profile?.collegeName || ''
   editForm.sex = memberStore.profile?.sex?.toString() || ''
 
   settingsPopupRef.value?.open?.('bottom')
@@ -86,28 +95,118 @@ const closeSettingsPopup = () => {
   settingsPopupRef.value?.close?.()
 }
 
-const saveSettings = () => {
+const saveSettings = async () => {
   if (!editForm.nickname.trim()) {
     uni.showToast({ title: '昵称不能为空', icon: 'none' })
     return
   }
 
-  // 模拟保存到 Store (实际应该调用后端更新接口)
-  memberStore.setProfile({
-    ...memberStore.profile,
-    nickname: editForm.nickname.trim(),
-    mobile: editForm.mobile.trim(),
-    email: editForm.email.trim(),
-    college_name: editForm.college_name.trim(),
-    sex: editForm.sex,
-  })
+  try {
+    loading.value = true
+    const updateData = {
+      nickname: editForm.nickname.trim(),
+      mobile: editForm.mobile.trim(),
+      email: editForm.email.trim(),
+      collegeName: editForm.collegeName.trim(),
+      sex: editForm.sex,
+      id: memberStore.profile?.id,
+    }
+    console.log(updateData, '-------------------')
+    // 调用后端更新接口
+    await updateUserInfo({
+      ...(memberStore.profile || {}),
+      ...updateData,
+    })
 
-  uni.showToast({ title: '资料已保存', icon: 'success' })
-  closeSettingsPopup()
+    // 获取最新用户信息
+    const res = await getCurrentUserInfo()
+
+    // 更新 Store，(保留原来的token，用新数据覆盖)
+    memberStore.setProfile({
+      ...memberStore.profile,
+      ...res.data,
+    })
+
+    uni.showToast({ title: '资料已保存', icon: 'success' })
+    closeSettingsPopup()
+  } catch (err) {
+    // 接口错误已在 http 拦截中提示
+  } finally {
+    loading.value = false
+  }
 }
 
 const showToast = (msg: string) => {
   uni.showToast({ title: msg, icon: 'none' })
+}
+
+const openPwdPopup = () => {
+  if (!isLogin.value) {
+    goToLogin()
+    return
+  }
+  pwdForm.oldPassword = ''
+  pwdForm.newPassword = ''
+  pwdForm.confirmPassword = ''
+  pwdPopupRef.value?.open?.('bottom')
+}
+
+const closePwdPopup = () => {
+  pwdPopupRef.value?.close?.()
+}
+
+const submitUpdatePwd = async () => {
+  if (!pwdForm.oldPassword || !pwdForm.newPassword || !pwdForm.confirmPassword) {
+    uni.showToast({ title: '请填写完整', icon: 'none' })
+    return
+  }
+  if (pwdForm.newPassword !== pwdForm.confirmPassword) {
+    uni.showToast({ title: '两次新密码不一致', icon: 'none' })
+    return
+  }
+  try {
+    loading.value = true
+    await updatePassword({
+      oldPassword: pwdForm.oldPassword,
+      newPassword: pwdForm.newPassword,
+      confirmPassword: pwdForm.confirmPassword,
+    })
+    uni.showToast({ title: '密码修改成功', icon: 'success' })
+    closePwdPopup()
+  } catch (err) {
+    // API 自动提示了错误
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleResetPassword = () => {
+  if (!isLogin.value) {
+    goToLogin()
+    return
+  }
+  const userId = memberStore.profile?.id
+  if (!userId) {
+    uni.showToast({ title: '获取用户信息失败', icon: 'none' })
+    return
+  }
+  uni.showModal({
+    title: '重置密码',
+    content: '确定要重置密码吗？',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          loading.value = true
+          await resetPassword({ userId: String(userId) })
+          uni.showToast({ title: '密码已重置', icon: 'success' })
+        } catch (err) {
+          // err handled in http interceptor
+        } finally {
+          loading.value = false
+        }
+      }
+    },
+  })
 }
 
 // Stats Dummy Data
@@ -162,7 +261,7 @@ onShow(() => {
         <view class="hero-info" @tap="openSettingsPopup">
           <text class="hero-name">{{ displayName }} <text class="edit-icon">✎</text></text>
           <view class="hero-tags">
-            <text class="tag">{{ memberStore.profile?.college_name || '未设置学院' }}</text>
+            <text class="tag">{{ memberStore.profile?.collegeName || '未设置学院' }}</text>
             <text class="tag">{{ memberStore.profile?.mobile || '暂无手机号' }}</text>
           </view>
         </view>
@@ -221,6 +320,20 @@ onShow(() => {
           </view>
           <text class="menu-arrow">›</text>
         </view>
+        <view class="menu-item" @tap="openPwdPopup">
+          <view class="menu-left">
+            <text class="menu-icon">🔒</text>
+            <text class="menu-title">修改密码</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+        <view class="menu-item" @tap="handleResetPassword">
+          <view class="menu-left">
+            <text class="menu-icon">🔑</text>
+            <text class="menu-title">重置密码</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
         <view class="menu-item" @tap="showToast('意见反馈')">
           <view class="menu-left">
             <text class="menu-icon">💬</text>
@@ -231,15 +344,7 @@ onShow(() => {
       </view>
 
       <!-- Logout Button (for demo purposes) -->
-      <button
-        class="logout-btn"
-        @tap="
-          memberStore.clearProfile()
-          goToLogin()
-        "
-      >
-        退出登录
-      </button>
+      <button class="logout-btn" @tap="memberStore.clearProfile(), goToLogin()">退出登录</button>
     </view>
 
     <!-- Settings / Profile Popup -->
@@ -306,7 +411,7 @@ onShow(() => {
             <input
               class="form-input"
               type="text"
-              v-model="editForm.college_name"
+              v-model="editForm.collegeName"
               placeholder="例如：计算机学院"
             />
           </view>
@@ -314,6 +419,56 @@ onShow(() => {
 
         <view class="popup-footer">
           <button class="save-btn" @tap="saveSettings">保存资料</button>
+        </view>
+      </view>
+    </uni-popup>
+
+    <!-- Password Popup -->
+    <uni-popup
+      ref="pwdPopupRef"
+      type="bottom"
+      background-color="#fff"
+      border-radius="40rpx 40rpx 0 0"
+    >
+      <view class="settings-popup">
+        <view class="popup-header">
+          <text class="popup-title">修改密码</text>
+          <text class="popup-close" @tap="closePwdPopup">×</text>
+        </view>
+        <view class="popup-body">
+          <view class="form-group">
+            <text class="form-label">旧密码</text>
+            <input
+              class="form-input"
+              type="password"
+              v-model="pwdForm.oldPassword"
+              placeholder="请输入旧密码"
+            />
+          </view>
+
+          <view class="form-group">
+            <text class="form-label">新密码</text>
+            <input
+              class="form-input"
+              type="password"
+              v-model="pwdForm.newPassword"
+              placeholder="请输入新密码"
+            />
+          </view>
+
+          <view class="form-group">
+            <text class="form-label">确认新密码</text>
+            <input
+              class="form-input"
+              type="password"
+              v-model="pwdForm.confirmPassword"
+              placeholder="请再次输入新密码"
+            />
+          </view>
+        </view>
+
+        <view class="popup-footer">
+          <button class="save-btn" @tap="submitUpdatePwd" :disabled="loading">确认修改</button>
         </view>
       </view>
     </uni-popup>
