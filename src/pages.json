@@ -40,6 +40,12 @@
         "navigationBarBackgroundColor": "#ffffff",
         "navigationBarTextStyle": "black"
       }
+    },
+    {
+      "path": "pages/hot-activity/hot-activity",
+      "style": {
+        "navigationBarTitleText": "热门活动"
+      }
     }
   ],
   "globalStyle": {

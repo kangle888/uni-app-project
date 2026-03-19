@@ -35,7 +35,11 @@
 
     <!-- Activity List -->
     <view class="activity-list-container">
-      <view class="activity-list" v-if="filteredActivities.length > 0">
+      <view class="loading-wrap" v-if="isLoading">
+        <text class="loading-text">活动加载中...</text>
+      </view>
+
+      <view class="activity-list" v-else-if="filteredActivities.length > 0">
         <view
           class="activity-card"
           v-for="activity in filteredActivities"
@@ -83,116 +87,114 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { onShow, onLoad } from '@dcloudio/uni-app'
+import {
+  getActivityPage,
+  getFavoriteList,
+  favoriteActivity,
+  cancelFavoriteActivity,
+} from '@/services/activity'
+import { useMemberStore } from '@/stores'
 
+const memberStore = useMemberStore()
 const searchKeyword = ref('')
 const currentCategory = ref('all')
 
 const categories = ref([
   { id: 'all', name: '全部' },
-  { id: 'lecture', name: '学术讲座' },
-  { id: 'sports', name: '体育竞技' },
-  { id: 'arts', name: '文艺演出' },
-  { id: 'volunteer', name: '志愿服务' },
-  { id: 'club', name: '社团活动' },
+  { id: '学术讲座', name: '学术讲座' },
+  { id: '体育竞技', name: '体育竞技' },
+  { id: '文艺演出', name: '文艺演出' },
+  { id: '志愿服务', name: '志愿服务' },
+  { id: '社团活动', name: '社团活动' },
 ])
 
-const allActivities = ref([
-  {
-    id: 1,
-    categoryId: 'arts',
-    title: '“青春律动” 校园街舞争霸赛决赛',
-    cover:
-      'https://images.unsplash.com/photo-1518834107812-6aed9cecdbb4?q=80&w=400&auto=format&fit=crop',
-    status: '报名中',
-    statusType: 'active',
-    time: '本周五 18:30 - 21:00',
-    location: '大学生活动中心',
-    joined: 120,
-    capacity: 200,
-    isFavorited: true,
-  },
-  {
-    id: 2,
-    categoryId: 'lecture',
-    title: '名企学长学姐带你进大厂分享会',
-    cover:
-      'https://images.unsplash.com/photo-1552581234-26160f608093?q=80&w=400&auto=format&fit=crop',
-    status: '即将开始',
-    statusType: 'warning',
-    time: '明天 14:00 - 16:30',
-    location: '图书馆第一学术报告厅',
-    joined: 280,
-    capacity: 300,
-    isFavorited: false,
-  },
-  {
-    id: 3,
-    categoryId: 'volunteer',
-    title: '环保社：周末净滩志愿公益行',
-    cover:
-      'https://images.unsplash.com/photo-1618477461853-cf6ed80fca18?q=80&w=400&auto=format&fit=crop',
-    status: '已满员',
-    statusType: 'disabled',
-    time: '本周日 08:00 - 12:00',
-    location: '南门滨海湾公园',
-    joined: 50,
-    capacity: 50,
-    isFavorited: false,
-  },
-  {
-    id: 4,
-    categoryId: 'sports',
-    title: '第九届“新生杯”篮球对抗赛',
-    cover:
-      'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=400&auto=format&fit=crop',
-    status: '进行中',
-    statusType: 'active',
-    time: '每天 16:00 - 18:00',
-    location: '北区露天篮球场',
-    joined: 32,
-    capacity: 40,
-    isFavorited: false,
-  },
-  {
-    id: 5,
-    categoryId: 'club',
-    title: '摄影协会：校园秋景外拍采风',
-    cover:
-      'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=400&auto=format&fit=crop',
-    status: '报名中',
-    statusType: 'active',
-    time: '下周四 14:00 - 17:00',
-    location: '主校区银杏大道',
-    joined: 15,
-    capacity: 25,
-    isFavorited: true,
-  },
-  {
-    id: 6,
-    categoryId: 'lecture',
-    title: '人工智能前沿应用与ChatGPT讲座',
-    cover:
-      'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=400&auto=format&fit=crop',
-    status: '已结束',
-    statusType: 'disabled',
-    time: '上周五 19:00 - 21:00',
-    location: '科技楼阶梯教室',
-    joined: 150,
-    capacity: 150,
-    isFavorited: false,
-  },
-])
+const allActivities = ref<any[]>([])
+const isLoading = ref(false)
+const showTopOnly = ref(false)
 
-// Filter activities based on Category & Search Keyword
+const defaultCover =
+  'https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=400&auto=format&fit=crop'
+
+const formatTimeRange = (start?: string, end?: string) => {
+  if (!start && !end) return ''
+  const s = start ? new Date(start) : null
+  const e = end ? new Date(end) : null
+  if (s && e) return `${s.toLocaleString('zh-CN')} - ${e.toLocaleString('zh-CN')}`
+  if (s) return s.toLocaleString('zh-CN')
+  return e ? e.toLocaleString('zh-CN') : ''
+}
+
+const statusTypeFrom = (status?: string, hot?: number, number?: number) => {
+  if (
+    (status && String(status).includes('结束')) ||
+    (Number(number) > 0 && Number(hot) >= Number(number))
+  ) {
+    return 'disabled'
+  }
+  if (status && (String(status).includes('即将') || String(status).includes('待启用'))) {
+    return 'warning'
+  }
+  return 'active'
+}
+
+const loadActivities = async () => {
+  isLoading.value = true
+  try {
+    const [pageRes, favoriteRes]: any = await Promise.all([
+      getActivityPage({
+        pageNum: 1,
+        pageSize: 200,
+        query: {
+          isTop: showTopOnly.value ? '1' : undefined,
+        },
+      }),
+      getFavoriteList({
+        pageNum: 1,
+        pageSize: 2000,
+        query: { userId: memberStore.profile?.id, status: '已收藏' },
+      }),
+    ])
+
+    const favoriteRecords = favoriteRes?.data?.records || []
+    const favoriteMap = new Map<string, any>()
+    favoriteRecords.forEach((item: any) => {
+      favoriteMap.set(String(item.activityId), item)
+    })
+
+    const records = pageRes?.data?.records || []
+    allActivities.value = records.map((d: any) => {
+      const fav = favoriteMap.get(String(d.id))
+      return {
+        id: d.id,
+        favoriteId: fav?.id || '',
+        categoryId: d.type || '未分类',
+        title: d.name || '未命名活动',
+        cover: defaultCover,
+        status: d.status || '未知状态',
+        statusType: statusTypeFrom(d.status, d.hot, d.number),
+        time: formatTimeRange(d.startTime, d.endTime),
+        location: d.address || '未设置地点',
+        joined: Number(d.hot) || 0,
+        capacity: Number(d.number) || 0,
+        isFavorited: !!fav,
+      }
+    })
+  } catch (err) {
+    allActivities.value = []
+    console.error('loadActivities error', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
 const filteredActivities = computed(() => {
   let result = allActivities.value
 
-  // 1. Filter by category
   if (currentCategory.value !== 'all') {
     result = result.filter((item) => item.categoryId === currentCategory.value)
   }
 
-  // 2. Filter by search keyword
   if (searchKeyword.value.trim() !== '') {
     const kw = searchKeyword.value.toLowerCase()
     result = result.filter(
@@ -207,29 +209,56 @@ const switchCategory = (id: string) => {
   currentCategory.value = id
 }
 
-const handleSearch = () => {
-  // Logic triggers automatically through computed property, but you could trigger API fetches here
-  if (searchKeyword.value) {
-    uni.showToast({ title: `搜索: ${searchKeyword.value}`, icon: 'none' })
-  }
-}
+const handleSearch = () => {}
 
 const goDetail = (activity: any) => {
   uni.navigateTo({ url: `/pages/activity-detail/activity-detail?id=${activity.id}` })
 }
 
-const toggleFavorite = (activity: any) => {
-  activity.isFavorited = !activity.isFavorited
-  uni.showToast({
-    title: activity.isFavorited ? '已收藏' : '已取消收藏',
-    icon: 'success',
-    duration: 1000,
-  })
+const toggleFavorite = async (activity: any) => {
+  try {
+    if (activity.isFavorited) {
+      if (!activity.favoriteId) {
+        const refreshRes: any = await getFavoriteList({
+          pageNum: 1,
+          pageSize: 1,
+          query: { userId: memberStore.profile?.id, activityId: activity.id, status: '已收藏' },
+        })
+        activity.favoriteId = refreshRes?.data?.records?.[0]?.id || ''
+      }
+      if (!activity.favoriteId) throw new Error('未找到收藏记录')
+      await cancelFavoriteActivity(String(activity.favoriteId))
+      activity.isFavorited = false
+      activity.favoriteId = ''
+      uni.showToast({ title: '已取消收藏', icon: 'none' })
+    } else {
+      await favoriteActivity(String(activity.id))
+      activity.isFavorited = true
+      const refreshRes: any = await getFavoriteList({
+        pageNum: 1,
+        pageSize: 1,
+        query: { userId: memberStore.profile?.id, activityId: activity.id, status: '已收藏' },
+      })
+      activity.favoriteId = refreshRes?.data?.records?.[0]?.id || ''
+      uni.showToast({ title: '已收藏', icon: 'success' })
+    }
+  } catch (err) {
+    console.error('toggle favorite error', err)
+  }
 }
 
 const handleCreateRequest = () => {
   uni.showToast({ title: '发起活动功能开发中~', icon: 'none' })
 }
+
+onLoad((options) => {
+  showTopOnly.value = String(options?.isTop || '') === '1'
+})
+
+onShow(() => {
+  if (!memberStore.profile?.token) return
+  loadActivities()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -323,6 +352,16 @@ const handleCreateRequest = () => {
 }
 
 /* Activity List */
+.loading-wrap {
+  padding: 80rpx 0;
+  text-align: center;
+
+  .loading-text {
+    font-size: 26rpx;
+    color: #999;
+  }
+}
+
 .activity-list-container {
   flex: 1;
   padding: 30rpx;

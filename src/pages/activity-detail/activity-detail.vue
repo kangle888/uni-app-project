@@ -91,9 +91,20 @@
           }}</text>
         </view>
 
-        <view class="action-icon-btn" v-if="activityData.needsCheckin" @tap="handleCheckin">
+        <view class="action-icon-btn" @tap="openCommentPopup">
+          <text class="icon">💬</text>
+          <text class="icon-label">评论</text>
+        </view>
+
+        <view
+          v-if="activityData.needsCheckin"
+          class="action-icon-btn"
+          @tap="isSignedIn ? undefined : isAdmin ? handleScanVerify() : handleCheckin()"
+        >
           <text class="icon">📍</text>
-          <text class="icon-label">去打卡</text>
+          <text class="icon-label" :class="{ 'active-label': isSignedIn }">{{
+            isSignedIn ? '已签到' : isAdmin ? '扫码核验' : '签到'
+          }}</text>
         </view>
       </view>
 
@@ -106,6 +117,7 @@
         >
           立即报名
         </button>
+        <button v-else-if="isSignedIn" class="main-btn signed" disabled>已报名</button>
         <button
           v-else-if="activityData.isEnrolled && activityData.statusType !== 'disabled'"
           class="main-btn warning"
@@ -118,19 +130,73 @@
         </button>
       </view>
     </view>
+
+    <!-- Checkin QR Code Modal -->
+    <view v-if="qrVisible" class="qr-modal" @tap.self="closeQr">
+      <view class="qr-dialog">
+        <text class="qr-title">签到二维码</text>
+        <image v-if="qrDataUrl" :src="qrDataUrl" class="qr-image" mode="widthFix" />
+        <!-- <text class="qr-text" v-if="qrToken">{{ qrToken }}</text> -->
+        <text class="qr-error" v-if="qrError">{{ qrError }}</text>
+        <view class="qr-actions">
+          <button class="qr-close" @tap="closeQr">关闭</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- Comment Popup -->
+    <view v-if="commentVisible" class="comment-popup-mask" @tap.self="closeCommentPopup">
+      <view class="comment-popup">
+        <view class="comment-popup-header">
+          <text class="comment-popup-title">活动评论</text>
+          <text class="comment-popup-close" @tap="closeCommentPopup">×</text>
+        </view>
+
+        <view class="comment-popup-body">
+          <view class="comment-list" v-if="comments.length">
+            <view class="comment-item" v-for="item in comments" :key="item.id">
+              <text class="comment-user">{{ item.nickname || item.userName || '同学' }}</text>
+              <text class="comment-content">{{ item.content }}</text>
+              <text class="comment-time">{{ item.createTime || '' }}</text>
+            </view>
+          </view>
+          <text class="comment-empty" v-else>暂无评论，快来抢沙发~</text>
+        </view>
+
+        <view class="comment-editor">
+          <input
+            v-model="commentForm"
+            class="comment-input"
+            placeholder="说点什么吧..."
+            maxlength="200"
+          />
+          <button class="comment-btn" @tap="handleSubmitComment">发布</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import QRCode from 'qrcode'
 import {
   getActivityDetail,
   enterActivity,
-  cancelActivity,
-  getRegistrationRule,
+  getMyEnterActivity,
+  cancelActivityByActivity,
   getSignCode,
+  signIn,
+  getMySignIn,
+  downloadAttachment,
+  getFavoriteList,
+  favoriteActivity,
+  cancelFavoriteActivity,
+  getCommentList,
+  addCommentActivity,
 } from '@/services/activity'
+import { useMemberStore } from '@/stores'
 
 // Note: In a real app, you would fetch details via HTTP using the ID passed in onLoad.
 // For now, we mock the detailed data.
@@ -175,6 +241,26 @@ const activityData = ref<ActivityDetail>({
   isEnrolled: false,
   needsCheckin: false,
 })
+const memberStore = useMemberStore()
+const isAdmin = computed(() => {
+  const username = String(memberStore.profile?.username || '').toLowerCase()
+  return username === 'admin'
+})
+const activityId = ref<any>('')
+const favoriteRecord = ref<any>(null)
+const myEnterRecord = ref<any>(null)
+const mySignInRecord = ref<any>(null)
+const isSignedIn = computed(() => mySignInRecord.value?.signInStatus === '已签到')
+
+const commentForm = ref('')
+const comments = ref<any[]>([])
+const commentVisible = ref(false)
+
+// QR code state for check-in
+const qrVisible = ref(false)
+const qrToken = ref('')
+const qrDataUrl = ref('')
+const qrError = ref('')
 
 // Computed properties for progress bar
 const enrollmentPercent = computed(() => {
@@ -198,8 +284,8 @@ const progressTip = computed(() => {
 })
 
 onLoad((options) => {
-  const id = options?.id || '1'
-  fetchDetail(id)
+  activityId.value = options?.id || '1'
+  fetchDetail(activityId.value)
 })
 
 const formatTimeRange = (start?: string, end?: string) => {
@@ -211,16 +297,75 @@ const formatTimeRange = (start?: string, end?: string) => {
   return e ? e.toLocaleString('zh-CN') : ''
 }
 
+const getMimeType = (fileName: string) => {
+  const lower = fileName.toLowerCase()
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  return 'image/jpeg'
+}
+
+const getImageUrl = async (fileName?: string) => {
+  if (!fileName) return ''
+  try {
+    const res = await downloadAttachment(fileName)
+    const buffer = res?.data as ArrayBuffer
+    if (!buffer) return ''
+    const base64 = uni.arrayBufferToBase64(buffer)
+    return `data:${getMimeType(fileName)};base64,${base64}`
+  } catch {
+    return ''
+  }
+}
+
+const fetchComments = async () => {
+  const res: any = await getCommentList({
+    pageNum: 1,
+    pageSize: 200,
+    query: { activityId: activityId.value },
+  })
+  comments.value = (res?.data?.records || []).filter((item: any) => Number(item.delFlag) !== 1)
+}
+
+const openCommentPopup = async () => {
+  commentVisible.value = true
+  try {
+    await fetchComments()
+  } catch (err) {
+    console.error('openCommentPopup error', err)
+  }
+}
+
+const closeCommentPopup = () => {
+  commentVisible.value = false
+}
+
 const fetchDetail = async (id: string | number) => {
   try {
     uni.showLoading({ title: '加载中...' })
-    const res = await getActivityDetail(String(id))
+    const [resMyEnter, resMySignIn, resFavorite, res]: any = await Promise.all([
+      getMyEnterActivity(String(id)),
+      getMySignIn(String(id)),
+      getFavoriteList({
+        pageNum: 1,
+        pageSize: 1,
+        query: { userId: memberStore.profile?.id, activityId: id, status: '已收藏' },
+      }),
+      getActivityDetail(String(id)),
+    ])
+
     const d: any = res.data
+    myEnterRecord.value = resMyEnter?.data || null
+    mySignInRecord.value = resMySignIn?.data || null
+    favoriteRecord.value = resFavorite?.data?.records?.[0] || null
+
+    const coverFile = [d.image1, d.image2, d.image3, d.image4, d.image5].find((file: any) => !!file)
+    const coverUrl = await getImageUrl(coverFile)
 
     activityData.value = {
       id: d.id,
       title: d.name || d.title || '活动详情',
-      cover: d.image1 || d.image2 || d.image3 || '',
+      cover: coverUrl || '',
       status: d.status || '',
       statusType:
         (d.status && String(d.status).includes('结束')) || (d.number && d.hot >= d.number)
@@ -240,18 +385,12 @@ const fetchDetail = async (id: string | number) => {
         d.ruleId ||
         (d.registrationRule && d.registrationRule.id) ||
         undefined,
-      isFavorited: false,
-      // try multiple possible flags returned by backend to infer enrollment
-      isEnrolled: !!(
-        d.isEnter ||
-        d.entered ||
-        d.hasEnter ||
-        d.isEnrolled ||
-        d.joinFlag ||
-        d.enrolled
-      ),
+      isFavorited: !!favoriteRecord.value,
+      isEnrolled: !!(myEnterRecord.value && myEnterRecord.value.status === '已报名'),
       needsCheckin: !!(d.registrationRuleId || d.ruleId || d.registrationRule),
     }
+
+    await fetchComments()
   } catch (err) {
     console.error('fetchDetail error', err)
   } finally {
@@ -259,64 +398,141 @@ const fetchDetail = async (id: string | number) => {
   }
 }
 
+const closeQr = () => {
+  qrVisible.value = false
+  qrToken.value = ''
+  qrDataUrl.value = ''
+  qrError.value = ''
+}
+
+const generateQrDataUrl = async (text: string) => {
+  try {
+    qrDataUrl.value = await QRCode.toDataURL(text, { errorCorrectionLevel: 'M' as any })
+  } catch (err) {
+    console.error('generateQrDataUrl error', err)
+    // 部分端（尤其小程序）可能不支持 toDataURL，降级使用在线二维码图片
+    try {
+      qrDataUrl.value = `https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=${encodeURIComponent(
+        text,
+      )}`
+      qrError.value = ''
+    } catch {
+      qrError.value = '二维码生成失败，请稍后重试'
+    }
+  }
+}
+
+const showQrCode = async (text: string) => {
+  qrToken.value = text
+  qrError.value = ''
+  qrVisible.value = true
+  await nextTick()
+  await generateQrDataUrl(text)
+}
+
 // Action Handlers
-const toggleFavorite = () => {
-  activityData.value.isFavorited = !activityData.value.isFavorited
-  uni.showToast({
-    title: activityData.value.isFavorited ? '已加入收藏' : '已取消收藏',
-    icon: 'success',
-    duration: 1500,
-  })
+const toggleFavorite = async () => {
+  try {
+    if (activityData.value.isFavorited) {
+      if (!favoriteRecord.value?.id) {
+        const refreshRes: any = await getFavoriteList({
+          pageNum: 1,
+          pageSize: 1,
+          query: {
+            userId: memberStore.profile?.id,
+            activityId: activityData.value.id,
+            status: '已收藏',
+          },
+        })
+        favoriteRecord.value = refreshRes?.data?.records?.[0] || null
+      }
+      if (!favoriteRecord.value?.id) throw new Error('未找到收藏记录')
+      await cancelFavoriteActivity(String(favoriteRecord.value.id))
+      activityData.value.isFavorited = false
+      favoriteRecord.value = null
+      uni.showToast({ title: '已取消收藏', icon: 'none' })
+    } else {
+      await favoriteActivity(String(activityData.value.id))
+      const refreshRes: any = await getFavoriteList({
+        pageNum: 1,
+        pageSize: 1,
+        query: {
+          userId: memberStore.profile?.id,
+          activityId: activityData.value.id,
+          status: '已收藏',
+        },
+      })
+      favoriteRecord.value = refreshRes?.data?.records?.[0] || null
+      activityData.value.isFavorited = true
+      uni.showToast({ title: '已加入收藏', icon: 'success' })
+    }
+  } catch (err) {
+    console.error('toggleFavorite error', err)
+  }
 }
 
 const handleCheckin = async () => {
   if (!activityData.value.isEnrolled) {
-    uni.showToast({ title: '请先报名活动后再打卡', icon: 'none' })
+    uni.showToast({ title: '请先报名活动后再签到', icon: 'none' })
     return
   }
 
   try {
-    uni.showLoading({ title: '获取签到规则...' })
-    // determine rule id (prefer explicit rule id if available)
-    const ruleId = activityData.value.registrationRuleId || String(activityData.value.id)
-    const ruleRes = await getRegistrationRule(String(ruleId))
-    const ruleData: any = ruleRes?.data
-
-    // If backend returned signBegin/signEnd, validate current time against them
-    if (ruleData) {
-      const now = Date.now()
-      const begin = ruleData.signBegin ? new Date(ruleData.signBegin).getTime() : undefined
-      const end = ruleData.signEnd ? new Date(ruleData.signEnd).getTime() : undefined
-      if (begin && now < begin) {
-        uni.showToast({ title: '未到签到开始时间', icon: 'none' })
-        return
-      }
-      if (end && now > end && ruleData.allowLateSign !== 'true') {
-        uni.showToast({ title: '签到已结束', icon: 'none' })
-        return
-      }
-    }
-
-    // 获取签到二维码
     uni.showLoading({ title: '生成签到二维码...' })
-    const codeRes = await getSignCode(String(activityData.value.id))
-    const codeData: any = codeRes?.data
-    uni.hideLoading()
 
-    // 如果返回二维码图片地址，使用图片预览展示；若返回 signCode，则显示文本
-    if (codeData && codeData.qrUrl) {
-      uni.previewImage({ urls: [codeData.qrUrl] })
-    } else if (codeData && codeData.signCode) {
-      uni.showModal({ title: '签到二维码', content: `签到码：${codeData.signCode}` })
-    } else if (typeof codeRes?.data === 'string') {
-      // 有些后端直接返回图片地址字符串
-      uni.previewImage({ urls: [String(codeRes.data)] })
+    // 直接向后端取签到 token（后端已做规则校验）
+    const codeRes: any = await getSignCode(String(activityData.value.id))
+    const codeData: any = codeRes?.data
+
+    if (codeData && typeof codeData === 'string') {
+      await showQrCode(codeData)
     } else {
       uni.showToast({ title: '未能获取签到信息', icon: 'none' })
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('checkin error', err)
-    uni.showToast({ title: '获取签到失败', icon: 'none' })
+    uni.showToast({ title: err?.data?.message || '获取签到失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
+}
+
+const handleScanVerify = async () => {
+  try {
+    const scanRes: any = await new Promise((resolve, reject) => {
+      uni.scanCode({
+        onlyFromCamera: true,
+        scanType: ['qrCode'],
+        success: resolve,
+        fail: reject,
+      })
+    })
+
+    const signCode = String(scanRes?.result || '').trim()
+    if (!signCode) {
+      uni.showToast({ title: '未识别到二维码内容', icon: 'none' })
+      return
+    }
+
+    uni.showLoading({ title: '核验中...' })
+    await signIn(String(activityData.value.id), signCode)
+    uni.showModal({
+      title: '核验成功',
+      content: '该用户签到核验通过',
+      showCancel: false,
+      confirmText: '知道了',
+    })
+  } catch (err: any) {
+    const message = String(err?.data?.message || err?.message || err?.errMsg || '扫码核验失败')
+    if (!message.includes('cancel')) {
+      uni.showModal({
+        title: message.includes('已签到') ? '已签到' : '核验失败',
+        content: message.includes('已签到') ? '该用户已签到，请勿重复核验' : message,
+        showCancel: false,
+        confirmText: '知道了',
+      })
+    }
+    console.error('scan verify error', err)
   } finally {
     uni.hideLoading()
   }
@@ -331,7 +547,11 @@ const handleEnroll = async () => {
         try {
           uni.showLoading({ title: '处理中' })
           await enterActivity(String(activityData.value.id))
-          activityData.value.isEnrolled = true
+          const myRes: any = await getMyEnterActivity(String(activityData.value.id))
+          myEnterRecord.value = myRes?.data || null
+          activityData.value.isEnrolled = !!(
+            myEnterRecord.value && myEnterRecord.value.status === '已报名'
+          )
           activityData.value.joined += 1
           uni.showToast({ title: '报名成功', icon: 'success' })
         } catch (err) {
@@ -347,13 +567,14 @@ const handleEnroll = async () => {
 const handleCancelEnroll = () => {
   uni.showModal({
     title: '取消报名',
-    content: '取消后可能无法再次获得名额，是否确认取消？',
+    content: '确定取消本活动报名吗？',
     confirmColor: '#FF4D4F',
     success: async (res) => {
       if (res.confirm) {
         try {
           uni.showLoading({ title: '处理中' })
-          await cancelActivity(String(activityData.value.id))
+          await cancelActivityByActivity(String(activityData.value.id))
+          myEnterRecord.value = null
           activityData.value.isEnrolled = false
           activityData.value.joined = Math.max(0, activityData.value.joined - 1)
           uni.showToast({ title: '已取消报名', icon: 'none' })
@@ -365,6 +586,29 @@ const handleCancelEnroll = () => {
       }
     },
   })
+}
+
+const handleSubmitComment = async () => {
+  const content = commentForm.value.trim()
+  if (!content) {
+    uni.showToast({ title: '评论内容不能为空', icon: 'none' })
+    return
+  }
+  try {
+    uni.showLoading({ title: '发布中...' })
+    await addCommentActivity({
+      activityId: activityData.value.id,
+      content,
+      level: 5,
+    })
+    commentForm.value = ''
+    await fetchComments()
+    uni.showToast({ title: '评论成功', icon: 'success' })
+  } catch (err) {
+    console.error('comment error', err)
+  } finally {
+    uni.hideLoading()
+  }
 }
 </script>
 
@@ -688,10 +932,208 @@ const handleCancelEnroll = () => {
         box-shadow: none;
       }
 
+      &.signed {
+        background: #f5f7fa;
+        color: #27ba9b;
+        border: 2rpx solid #27ba9b;
+        box-shadow: none;
+      }
+
       &:active {
         transform: scale(0.96);
       }
     }
   }
+}
+
+/* Comment Popup */
+.comment-popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 210;
+  display: flex;
+  align-items: flex-end;
+}
+
+.comment-popup {
+  width: 100%;
+  max-height: 80vh;
+  background: #fff;
+  border-radius: 28rpx 28rpx 0 0;
+  padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.comment-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+
+  .comment-popup-title {
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .comment-popup-close {
+    font-size: 44rpx;
+    color: #999;
+    line-height: 1;
+    padding: 4rpx 8rpx;
+  }
+}
+
+.comment-popup-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 200rpx;
+}
+
+.comment-editor {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 16rpx;
+
+  .comment-input {
+    flex: 1;
+    height: 76rpx;
+    background: #f5f7fa;
+    border-radius: 12rpx;
+    padding: 0 20rpx;
+    font-size: 26rpx;
+  }
+
+  .comment-btn {
+    width: 140rpx;
+    height: 76rpx;
+    line-height: 76rpx;
+    border-radius: 12rpx;
+    font-size: 26rpx;
+    color: #fff;
+    background: #667eea;
+    margin: 0;
+  }
+}
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+
+  .comment-item {
+    padding: 16rpx;
+    border-radius: 12rpx;
+    background: #f8f9fb;
+
+    .comment-user {
+      display: block;
+      font-size: 24rpx;
+      color: #333;
+      font-weight: bold;
+      margin-bottom: 8rpx;
+    }
+
+    .comment-content {
+      display: block;
+      font-size: 26rpx;
+      color: #555;
+      margin-bottom: 8rpx;
+      white-space: pre-wrap;
+    }
+
+    .comment-time {
+      display: block;
+      font-size: 22rpx;
+      color: #999;
+    }
+  }
+}
+
+.comment-empty {
+  font-size: 24rpx;
+  color: #999;
+  padding: 20rpx 0;
+}
+
+/* QR Code modal */
+.qr-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.qr-dialog {
+  width: 720rpx;
+  max-width: 90vw;
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 40rpx 30rpx;
+  box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.qr-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.qr-image {
+  width: 420rpx;
+  height: 420rpx;
+  border-radius: 24rpx;
+  background: #fff;
+  box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.08);
+  object-fit: contain;
+}
+
+.qr-text {
+  font-size: 24rpx;
+  color: #666;
+  word-break: break-all;
+  text-align: center;
+  max-height: 100rpx;
+  overflow: hidden;
+}
+
+.qr-error {
+  font-size: 24rpx;
+  color: #ff4d4f;
+  text-align: center;
+}
+
+.qr-actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.qr-close {
+  padding: 0 32rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  border-radius: 36rpx;
+  background: #1f8ef1;
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: bold;
 }
 </style>

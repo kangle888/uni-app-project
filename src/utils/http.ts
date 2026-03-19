@@ -16,7 +16,7 @@ import { useMemberStore } from '@/stores'
 // 使用 import.meta.env.MODE 判断环境（已添加类型声明）http://192.168.1.2:10000
 const baseURL =
   import.meta.env.MODE === 'development'
-    ? 'http://localhost:8080' // 本地开发用 Node 本地端口
+    ? 'http://192.168.1.4:8080' // 本地开发用 Node 本地端口
     : 'https://xklandlxy.art' // 生产环境用 HTTPS 域名
 
 // 添加请求前拦截器

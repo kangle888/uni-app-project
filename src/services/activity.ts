@@ -31,10 +31,11 @@ export const getActivityPage = (data: SysActivityPageParams) => {
     },
   })
 }
+
 // 查看活动详情 /demo/sysActivity/getById
 export const getActivityDetail = (activityId: string) => {
   return http({
-    url: `/sysActivity/viewActivity?id=${activityId}`,
+    url: `/sysActivity/getById?id=${activityId}`,
     method: 'GET',
   })
 }
@@ -42,7 +43,7 @@ export const getActivityDetail = (activityId: string) => {
 // /sysActivity/viewActivity 活动信息统计  get
 export const viewActivity = (activityId: string) => {
   return http({
-    url: `/sysActivity/viewActivity?id=${activityId}`,
+    url: `/sysActivity/viewActivity?activityId=${activityId}`,
     method: 'GET',
   })
 }
@@ -56,9 +57,81 @@ export const enterActivity = (activityId: string) => {
 }
 
 // 取消报名 /enterActivity/cancel
-export const cancelActivity = (activityId: string) => {
+export const cancelActivity = (enterId: string) => {
   return http({
-    url: `/enterActivity/cancel?activityId=${activityId}`,
+    url: `/enterActivity/cancel?enterId=${enterId}`,
+    method: 'GET',
+  })
+}
+
+// 查询当前活动报名状态
+export const getMyEnterActivity = (activityId: string) => {
+  return http({
+    url: `/enterActivity/my?activityId=${activityId}`,
+    method: 'GET',
+  })
+}
+
+// 按活动取消当前用户报名
+export const cancelActivityByActivity = (activityId: string) => {
+  return http({
+    url: `/enterActivity/cancelByActivity?activityId=${activityId}`,
+    method: 'GET',
+  })
+}
+
+// /demo/enterActivity/listEnter 获取报名活动列表 post
+export const getEnterList = (data: SysActivityPageParams & Record<string, any>) => {
+  const { pageNum, pageSize, order, orderBy, query: innerQuery, ...restQuery } = data
+  return http({
+    url: `/enterActivity/listEnter`,
+    method: 'POST',
+    data: {
+      pageNum,
+      pageSize,
+      order,
+      orderBy,
+      query: innerQuery || restQuery,
+    },
+  })
+}
+
+// 收藏活动
+export const favoriteActivity = (activityId: string) => {
+  return http({
+    url: `/favoriteActivity/favorite?activityId=${activityId}`,
+    method: 'GET',
+  })
+}
+
+// 取消收藏
+export const cancelFavoriteActivity = (favoriteId: string) => {
+  return http({
+    url: `/favoriteActivity/cancel?favoriteId=${favoriteId}`,
+    method: 'GET',
+  })
+}
+
+// 收藏活动列表
+export const getFavoriteList = (data: SysActivityPageParams & Record<string, any>) => {
+  const { pageNum, pageSize, order, orderBy, query: innerQuery, ...restQuery } = data
+  return http({
+    url: `/favoriteActivity/listFavorite`,
+    method: 'POST',
+    data: {
+      pageNum,
+      pageSize,
+      order,
+      orderBy,
+      query: innerQuery || restQuery,
+    },
+  })
+}
+
+// 用户行为统计（收藏/报名/浏览）
+export const getUserBehaviorCount = () => {
+  return http({
+    url: '/userBehavior/count',
     method: 'GET',
   })
 }
@@ -83,7 +156,17 @@ export const getSignCode = (activityId: string) => {
 // /demo/registrationActivity/signIn 签到 activityId * signCode *
 export const signIn = (activityId: string, signCode: string) => {
   return http({
-    url: `/registrationActivity/signIn?activityId=${activityId}&signCode=${signCode}`,
+    url: `/registrationActivity/signIn?activityId=${encodeURIComponent(
+      activityId,
+    )}&signCode=${encodeURIComponent(signCode)}`,
+    method: 'GET',
+  })
+}
+
+// /demo/registrationActivity/my 查询当前用户在活动中的签到状态
+export const getMySignIn = (activityId: string) => {
+  return http({
+    url: `/registrationActivity/my?activityId=${encodeURIComponent(activityId)}`,
     method: 'GET',
   })
 }
@@ -115,7 +198,7 @@ export const getCommentList = (data: SysActivityPageParams & Record<string, any>
 // /demo/commentActivity/saveCommentActivity 添加评论 post
 export const addCommentActivity = (params: any) => {
   return http({
-    url: `/commentActivity/addCommentActivity`,
+    url: `/commentActivity/saveCommentActivity`,
     method: 'POST',
     data: params,
   })

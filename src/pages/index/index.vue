@@ -16,6 +16,7 @@
           confirm-type="search"
           @confirm="handleSearch"
         />
+        <text class="clear-icon" v-if="searchKeyword" @tap="clearSearch">✖</text>
       </view>
     </view>
 
@@ -64,7 +65,11 @@
         <text class="view-all" @tap="handleViewAll">查看全部 ></text>
       </view>
 
-      <view class="activity-list">
+      <view v-if="isLoading" class="loading-wrap">
+        <text class="loading-text">活动加载中...</text>
+      </view>
+
+      <view class="activity-list" v-else>
         <view
           class="activity-card"
           v-for="activity in activities"
@@ -91,9 +96,7 @@
               </view>
               <view class="meta-item">
                 <text class="meta-icon">👤</text>
-                <text class="meta-text"
-                  >{{ activity.joined }}/{{ activity.capacity }} 人已报名</text
-                >
+                <text class="meta-text">{{ activity.hot }}/{{ activity.capacity }} 人已报名</text>
               </view>
             </view>
 
@@ -128,7 +131,14 @@
 import { ref, computed } from 'vue'
 import { useMemberStore } from '@/stores'
 import { onShow } from '@dcloudio/uni-app'
-import { downloadAttachment, getActivityPage, getBannerImgs } from '@/services/activity'
+import {
+  downloadAttachment,
+  getActivityPage,
+  getBannerImgs,
+  getFavoriteList,
+  favoriteActivity,
+  cancelFavoriteActivity,
+} from '@/services/activity'
 
 interface BannerItem {
   id: string | number
@@ -138,13 +148,14 @@ interface BannerItem {
 
 interface ActivityCard {
   id: string | number
+  favoriteId?: string
   title: string
   cover: string
   status: string
   statusType: 'active' | 'warning' | 'disabled'
   time: string
   location: string
-  joined: number
+  hot: number
   capacity: number
   tags: string[]
   isFavorited: boolean
@@ -157,6 +168,7 @@ const displayName = computed(
 
 const searchKeyword = ref('')
 const currentType = ref('')
+const isLoading = ref(false)
 
 const banners = ref<BannerItem[]>([])
 const categories = ref([
@@ -267,16 +279,30 @@ const loadBanners = async () => {
   }
 }
 
-const loadActivities = async () => {
+const loadActivities = async (options?: { pageSize?: number; isTop?: string }) => {
+  isLoading.value = true
   try {
-    const res = await getActivityPage({
-      pageNum: 1,
-      pageSize: 10,
-      query: {
-        isTop: '1',
-        type: currentType.value || undefined,
-        name: searchKeyword.value.trim() || undefined,
-      },
+    const [res, favoriteRes]: any = await Promise.all([
+      getActivityPage({
+        pageNum: 1,
+        pageSize: options?.pageSize ?? 3,
+        query: {
+          isTop: options?.isTop ?? '1',
+          type: currentType.value || undefined,
+          name: searchKeyword.value.trim() || undefined,
+        },
+      }),
+      getFavoriteList({
+        pageNum: 1,
+        pageSize: 2000,
+        query: { userId: memberStore.profile?.id, status: '已收藏' },
+      }),
+    ])
+
+    const favoriteRecords = favoriteRes?.data?.records || []
+    const favoriteMap = new Map<string, any>()
+    favoriteRecords.forEach((item: any) => {
+      favoriteMap.set(String(item.activityId), item)
     })
 
     const pageData = res?.data as any
@@ -287,19 +313,21 @@ const loadActivities = async () => {
         const fileName = item?.image1 || item?.image || item?.cover
         const coverUrl = await getImageUrl(fileName)
         const statusInfo = getStatusInfo(item?.status)
+        const favorite = favoriteMap.get(String(item?.id))
 
         return {
           id: item?.id,
+          favoriteId: favorite?.id || '',
           title: item?.name || '未命名活动',
           cover: coverUrl || fileName || '',
           status: statusInfo.text,
           statusType: statusInfo.type,
           time: `${formatDateTime(item?.startTime)} - ${formatDateTime(item?.endTime)}`,
           location: item?.address || '地点待定',
-          joined: Number(item?.enterNum || item?.joined || 0),
+          hot: Number(item?.hot || 0),
           capacity: Number(item?.number || 0),
           tags: [item?.type || '校园活动'],
-          isFavorited: false,
+          isFavorited: !!favorite,
         } as ActivityCard
       }),
     )
@@ -307,6 +335,8 @@ const loadActivities = async () => {
     activities.value = mapped
   } catch {
     activities.value = []
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -316,39 +346,76 @@ onShow(async () => {
     return
   }
 
-  await Promise.all([loadBanners(), loadActivities()])
+  await Promise.all([loadBanners(), loadActivities({ pageSize: 3, isTop: '1' })])
 })
 
 const handleSearch = async () => {
-  const keyword = searchKeyword.value.trim()
-  if (!keyword) {
-    uni.showToast({ title: '请输入活动名称', icon: 'none' })
-    return
-  }
-  await loadActivities()
+  await loadActivities({ pageSize: 3, isTop: '1' })
+}
+
+const clearSearch = async () => {
+  searchKeyword.value = ''
+  await loadActivities({ pageSize: 3, isTop: '1' })
 }
 
 const handleCategory = async (name: string) => {
   const category = categories.value.find((item) => item.name === name)
   currentType.value = category?.type || ''
-  await loadActivities()
+  await loadActivities({ pageSize: 3, isTop: '1' })
 }
 
 const handleViewAll = () => {
-  uni.navigateTo({ url: '/pages/activity/activity' })
+  uni.navigateTo({ url: '/pages/hot-activity/hot-activity' })
 }
 
 const handleViewDetail = (activity: ActivityCard) => {
   uni.navigateTo({ url: `/pages/activity-detail/activity-detail?id=${activity.id}` })
 }
 
-const toggleFavorite = (activity: ActivityCard) => {
-  activity.isFavorited = !activity.isFavorited
-  uni.showToast({
-    title: activity.isFavorited ? '已收藏' : '已取消收藏',
-    icon: 'success',
-    duration: 1000,
-  })
+const toggleFavorite = async (activity: ActivityCard) => {
+  try {
+    if (activity.isFavorited) {
+      if (!activity.favoriteId) {
+        const refreshRes: any = await getFavoriteList({
+          pageNum: 1,
+          pageSize: 1,
+          query: {
+            userId: memberStore.profile?.id,
+            activityId: activity.id,
+            status: '已收藏',
+          },
+        })
+        activity.favoriteId = refreshRes?.data?.records?.[0]?.id || ''
+      }
+
+      if (!activity.favoriteId) {
+        uni.showToast({ title: '未找到收藏记录', icon: 'none' })
+        return
+      }
+
+      await cancelFavoriteActivity(String(activity.favoriteId))
+      activity.isFavorited = false
+      activity.favoriteId = ''
+      uni.showToast({ title: '已取消收藏', icon: 'none' })
+    } else {
+      await favoriteActivity(String(activity.id))
+      activity.isFavorited = true
+
+      const refreshRes: any = await getFavoriteList({
+        pageNum: 1,
+        pageSize: 1,
+        query: {
+          userId: memberStore.profile?.id,
+          activityId: activity.id,
+          status: '已收藏',
+        },
+      })
+      activity.favoriteId = refreshRes?.data?.records?.[0]?.id || ''
+      uni.showToast({ title: '已收藏', icon: 'success' })
+    }
+  } catch (err) {
+    console.error('toggleFavorite error', err)
+  }
 }
 </script>
 
@@ -395,10 +462,12 @@ const toggleFavorite = (activity: ActivityCard) => {
     padding: 0 30rpx;
     height: 80rpx;
     border: 1px solid rgba(255, 255, 255, 0.3);
+    margin-bottom: 16rpx;
 
     .icon-search {
       font-size: 32rpx;
       margin-right: 16rpx;
+      color: #fff;
     }
 
     .search-input {
@@ -409,6 +478,12 @@ const toggleFavorite = (activity: ActivityCard) => {
       &::placeholder {
         color: rgba(255, 255, 255, 0.7);
       }
+    }
+
+    .clear-icon {
+      font-size: 28rpx;
+      color: rgba(255, 255, 255, 0.8);
+      padding: 8rpx 12rpx;
     }
   }
 }
@@ -500,6 +575,16 @@ const toggleFavorite = (activity: ActivityCard) => {
 }
 
 /* Activities List */
+.loading-wrap {
+  padding: 60rpx 0;
+  text-align: center;
+
+  .loading-text {
+    font-size: 26rpx;
+    color: #999;
+  }
+}
+
 .activities-section {
   padding: 40rpx 30rpx;
 

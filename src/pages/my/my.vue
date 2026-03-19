@@ -3,6 +3,7 @@ import { computed, ref, reactive } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores'
 import { updateUserInfo, resetPassword, updatePassword, getCurrentUserInfo } from '@/services/login'
+import { getEnterList, getFavoriteList, getUserBehaviorCount } from '@/services/activity'
 
 const memberStore = useMemberStore()
 const loading = ref(false)
@@ -81,7 +82,7 @@ const openSettingsPopup = () => {
     goToLogin()
     return
   }
-  // Load curreconst openSettingsPopup = () => {
+  // Load current profile
   editForm.nickname = memberStore.profile?.nickname || ''
   editForm.mobile = memberStore.profile?.mobile || ''
   editForm.email = memberStore.profile?.email || ''
@@ -209,30 +210,83 @@ const handleResetPassword = () => {
   })
 }
 
-// Stats Dummy Data
+// Stats Real Data
 const stats = ref({
-  totalJoins: 12,
-  favorites: 8,
-  history: 45,
+  totalJoins: 0,
+  favorites: 0,
+  history: 0,
 })
 
-// Chart Data Dummy Logic (conic-gradient needs a string)
-const chartData = [
-  { label: '体育竞技', percent: 40, color: '#FF7A95', start: 0, end: 40 },
-  { label: '学术讲座', percent: 35, color: '#667EEA', start: 40, end: 75 },
-  { label: '文艺演出', percent: 25, color: '#27BA9B', start: 75, end: 100 },
-]
+const behaviorTotal = computed(() => {
+  return stats.value.totalJoins + stats.value.favorites + stats.value.history
+})
+
+const chartData = computed(() => {
+  const total = behaviorTotal.value
+  const raw = [
+    { key: 'totalJoins', label: '我的报名', value: stats.value.totalJoins, color: '#FF7A95' },
+    { key: 'favorites', label: '我的收藏', value: stats.value.favorites, color: '#667EEA' },
+    { key: 'history', label: '历史浏览', value: stats.value.history, color: '#27BA9B' },
+  ]
+
+  let cursor = 0
+  return raw.map((item, index) => {
+    const percent = total > 0 ? Number(((item.value / total) * 100).toFixed(1)) : 0
+    const start = cursor
+    const end = index === raw.length - 1 ? 100 : start + percent
+    cursor = end
+    return {
+      ...item,
+      percent,
+      start,
+      end,
+    }
+  })
+})
 
 const conicGradientStr = computed(() => {
-  // 生成锥形渐变字符串: e.g. #FF7A95 0% 40%, #667EEA 40% 75%, #27BA9B 75% 100%
-  const stops = chartData.map((item) => `${item.color} ${item.start}% ${item.end}%`)
+  const stops = chartData.value.map((item) => `${item.color} ${item.start}% ${item.end}%`)
   return `conic-gradient(${stops.join(', ')})`
 })
+
+const loadMyStats = async () => {
+  if (!memberStore.profile?.token) return
+
+  try {
+    const [behaviorRes, favoriteRes, enterRes]: any = await Promise.all([
+      getUserBehaviorCount(),
+      getFavoriteList({
+        pageNum: 1,
+        pageSize: 10,
+        query: { userId: memberStore.profile?.id, status: '已收藏' },
+      }),
+      getEnterList({
+        pageNum: 1,
+        pageSize: 10,
+        query: { userId: memberStore.profile?.id, status: '已报名' },
+      }),
+    ])
+
+    const behavior = behaviorRes?.data || {}
+    const favoriteTotal = Number(favoriteRes?.data?.total) || 0
+    const enterTotal = Number(enterRes?.data?.total) || 0
+
+    stats.value = {
+      totalJoins: Number(behavior.enterCount) || enterTotal,
+      favorites: Number(behavior.favoriteCount) || favoriteTotal,
+      history: Number(behavior.viewCount) || 0,
+    }
+  } catch (err) {
+    console.error('loadMyStats error', err)
+  }
+}
 
 onShow(() => {
   if (!isLogin.value) {
     uni.reLaunch({ url: '/pages/login/login' })
+    return
   }
+  loadMyStats()
 })
 </script>
 
@@ -295,8 +349,8 @@ onShow(() => {
           <!-- Donut Chart -->
           <view class="donut-chart" :style="{ background: conicGradientStr }">
             <view class="donut-hole">
-              <text class="donut-total">{{ stats.totalJoins }}</text>
-              <text class="donut-label">总参与量</text>
+              <text class="donut-total">{{ behaviorTotal }}</text>
+              <text class="donut-label">行为总量</text>
             </view>
           </view>
 
@@ -485,7 +539,8 @@ onShow(() => {
 /* Header Section */
 .hero-section {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 100rpx 40rpx 100rpx; /* Extra bottom padding for overlap */
+  padding: 100rpx 40rpx 100rpx;
+  /* Extra bottom padding for overlap */
   color: #fff;
   border-bottom-left-radius: 40rpx;
   border-bottom-right-radius: 40rpx;
@@ -500,6 +555,7 @@ onShow(() => {
     margin: 0;
     background: none;
     line-height: 1;
+
     &::after {
       border: none;
     }
@@ -565,7 +621,8 @@ onShow(() => {
 /* Content Wrapper */
 .content-wrapper {
   padding: 0 30rpx;
-  margin-top: -60rpx; /* Pulled up over header */
+  margin-top: -60rpx;
+  /* Pulled up over header */
   position: relative;
   z-index: 10;
 }
