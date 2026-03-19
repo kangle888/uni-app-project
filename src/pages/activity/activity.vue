@@ -3,7 +3,7 @@
     <!-- Header with Search -->
     <view class="header-section">
       <view class="search-box">
-        <text class="search-icon">🔍</text>
+        <text class="search-icon"></text>
         <input
           class="search-input"
           type="text"
@@ -373,9 +373,11 @@ const handleCreateRequest = () => {
           &.active {
             background: rgba(39, 186, 155, 0.9);
           }
+
           &.warning {
             background: rgba(250, 173, 20, 0.9);
           }
+
           &.disabled {
             background: rgba(153, 153, 153, 0.9);
           }
@@ -390,6 +392,7 @@ const handleCreateRequest = () => {
 
         .title-row {
           margin-bottom: 12rpx;
+
           .title {
             font-size: 30rpx;
             font-weight: bold;

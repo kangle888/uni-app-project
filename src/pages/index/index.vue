@@ -7,13 +7,14 @@
         <text class="subtitle">Hi, {{ displayName }} 👋 发现精彩校园生活</text>
       </view>
       <view class="search-bar">
-        <text class="icon-search">🔍</text>
+        <text class="icon-search" @tap="handleSearch"></text>
         <input
           class="search-input"
           type="text"
+          v-model="searchKeyword"
           placeholder="搜索你感兴趣的活动..."
-          disabled
-          @tap="handleSearch"
+          confirm-type="search"
+          @confirm="handleSearch"
         />
       </view>
     </view>
@@ -127,133 +128,221 @@
 import { ref, computed } from 'vue'
 import { useMemberStore } from '@/stores'
 import { onShow } from '@dcloudio/uni-app'
+import { downloadAttachment, getActivityPage, getBannerImgs } from '@/services/activity'
+
+interface BannerItem {
+  id: string | number
+  title: string
+  image: string
+}
+
+interface ActivityCard {
+  id: string | number
+  title: string
+  cover: string
+  status: string
+  statusType: 'active' | 'warning' | 'disabled'
+  time: string
+  location: string
+  joined: number
+  capacity: number
+  tags: string[]
+  isFavorited: boolean
+}
 
 const memberStore = useMemberStore()
 const displayName = computed(
   () => memberStore.profile?.nickname || memberStore.profile?.phone || '同学',
 )
 
-// Ensure user is logged in
-onShow(async () => {
-  if (!memberStore.profile?.token) {
-    uni.reLaunch({ url: '/pages/login/login' })
-  }
-})
+const searchKeyword = ref('')
+const currentType = ref('')
 
-// --- Mock Data ---
-
-const banners = ref([
-  {
-    id: 1,
-    title: '2026届校园十佳歌手总决赛',
-    image:
-      'https://images.unsplash.com/photo-1540039155732-d68f76e0339d?q=80&w=600&auto=format&fit=crop',
-  },
-  {
-    id: 2,
-    title: '春季校园定向越野公开赛',
-    image:
-      'https://images.unsplash.com/photo-1552674605-15f37018a7a0?q=80&w=600&auto=format&fit=crop',
-  },
-  {
-    id: 3,
-    title: 'AI人工智能创新应用讲座',
-    image:
-      'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=600&auto=format&fit=crop',
-  },
-])
-
+const banners = ref<BannerItem[]>([])
 const categories = ref([
   {
     id: 1,
     name: '学术讲座',
+    type: '学术讲座',
     icon: '📚',
     color: 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)',
   },
   {
     id: 2,
     name: '体育竞技',
+    type: '体育竞技',
     icon: '🏃‍♂️',
     color: 'linear-gradient(135deg, #84FAB0 0%, #8FD3F4 100%)',
   },
   {
     id: 3,
     name: '文艺演出',
+    type: '文艺演出',
     icon: '🎭',
     color: 'linear-gradient(135deg, #A18CD1 0%, #FBC2EB 100%)',
   },
   {
     id: 4,
     name: '志愿服务',
+    type: '志愿服务',
     icon: '🤝',
     color: 'linear-gradient(135deg, #FCCB90 0%, #D57EEB 100%)',
   },
-])
-
-const activities = ref([
   {
-    id: 101,
-    title: '“青春律动” 校园街舞争霸赛',
-    cover:
-      'https://images.unsplash.com/photo-1518834107812-6aed9cecdbb4?q=80&w=400&auto=format&fit=crop',
-    status: '报名中',
-    statusType: 'active',
-    time: '本周五 18:30 - 21:00',
-    location: '大学生活动中心',
-    joined: 120,
-    capacity: 200,
-    tags: ['音乐小镇', '官方认证'],
-    isFavorited: true,
-  },
-  {
-    id: 102,
-    title: '名企学长学姐带你进大厂分享会',
-    cover:
-      'https://images.unsplash.com/photo-1552581234-26160f608093?q=80&w=400&auto=format&fit=crop',
-    status: '即将开始',
-    statusType: 'warning',
-    time: '明天 14:00 - 16:30',
-    location: '图书馆第一学术报告厅',
-    joined: 280,
-    capacity: 300,
-    tags: ['讲座', '求职就业'],
-    isFavorited: false,
-  },
-  {
-    id: 103,
-    title: '环保社：周末净滩志愿公益行',
-    cover:
-      'https://images.unsplash.com/photo-1618477461853-cf6ed80fca18?q=80&w=400&auto=format&fit=crop',
-    status: '已满员',
-    statusType: 'disabled',
-    time: '本周日 08:00 - 12:00',
-    location: '南门滨海湾公园',
-    joined: 50,
-    capacity: 50,
-    tags: ['公益', '户外'],
-    isFavorited: false,
+    id: 5,
+    name: '社团活动',
+    type: '社团活动',
+    icon: '🎯',
+    color: 'linear-gradient(135deg, #89F7FE 0%, #66A6FF 100%)',
   },
 ])
+const activities = ref<ActivityCard[]>([])
 
-// --- Methods ---
-
-const handleSearch = () => {
-  uni.showToast({ title: '搜索功能开发中', icon: 'none' })
+const getMimeType = (fileName: string) => {
+  const lower = fileName.toLowerCase()
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  return 'image/jpeg'
 }
 
-const handleCategory = (name: string) => {
-  uni.showToast({ title: `点击分类：${name}`, icon: 'none' })
+const getImageUrl = async (fileName?: string) => {
+  if (!fileName) return ''
+  try {
+    const res = await downloadAttachment(fileName)
+    const buffer = res?.data as ArrayBuffer
+    if (!buffer) return ''
+    const base64 = uni.arrayBufferToBase64(buffer)
+    return `data:${getMimeType(fileName)};base64,${base64}`
+  } catch {
+    return ''
+  }
+}
+
+const formatDateTime = (value?: string) => {
+  if (!value) return '时间待定'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const min = String(date.getMinutes()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}`
+}
+
+const getStatusInfo = (status?: string) => {
+  if (!status) return { text: '进行中', type: 'active' as const }
+  if (status.includes('结束') || status.includes('关闭')) {
+    return { text: '已结束', type: 'disabled' as const }
+  }
+  if (status.includes('即将')) {
+    return { text: '即将开始', type: 'warning' as const }
+  }
+  if (status.includes('满')) {
+    return { text: '已满员', type: 'disabled' as const }
+  }
+  return { text: '报名中', type: 'active' as const }
+}
+
+const loadBanners = async () => {
+  try {
+    const res = await getBannerImgs()
+    const list = Array.isArray(res?.data) ? res.data : []
+    const mapped = await Promise.all(
+      list.map(async (item: any, index: number) => {
+        const fileName = typeof item === 'string' ? item : item?.fileName || item?.image || ''
+        const imageUrl = await getImageUrl(fileName)
+        console.log('imageUrl', imageUrl)
+        return {
+          id: item?.id || index,
+          title: item?.title || item?.name || '校园活动推荐',
+          image: imageUrl,
+        }
+      }),
+    )
+    banners.value = mapped.filter((item) => !!item.image)
+  } catch {
+    banners.value = []
+  }
+}
+
+const loadActivities = async () => {
+  try {
+    const res = await getActivityPage({
+      pageNum: 1,
+      pageSize: 10,
+      query: {
+        isTop: '1',
+        type: currentType.value || undefined,
+        name: searchKeyword.value.trim() || undefined,
+      },
+    })
+
+    const pageData = res?.data as any
+    const rows = pageData?.rows || pageData?.records || pageData?.list || []
+
+    const mapped = await Promise.all(
+      rows.map(async (item: any) => {
+        const fileName = item?.image1 || item?.image || item?.cover
+        const coverUrl = await getImageUrl(fileName)
+        const statusInfo = getStatusInfo(item?.status)
+
+        return {
+          id: item?.id,
+          title: item?.name || '未命名活动',
+          cover: coverUrl || fileName || '',
+          status: statusInfo.text,
+          statusType: statusInfo.type,
+          time: `${formatDateTime(item?.startTime)} - ${formatDateTime(item?.endTime)}`,
+          location: item?.address || '地点待定',
+          joined: Number(item?.enterNum || item?.joined || 0),
+          capacity: Number(item?.number || 0),
+          tags: [item?.type || '校园活动'],
+          isFavorited: false,
+        } as ActivityCard
+      }),
+    )
+
+    activities.value = mapped
+  } catch {
+    activities.value = []
+  }
+}
+
+onShow(async () => {
+  if (!memberStore.profile?.token) {
+    uni.reLaunch({ url: '/pages/login/login' })
+    return
+  }
+
+  await Promise.all([loadBanners(), loadActivities()])
+})
+
+const handleSearch = async () => {
+  const keyword = searchKeyword.value.trim()
+  if (!keyword) {
+    uni.showToast({ title: '请输入活动名称', icon: 'none' })
+    return
+  }
+  await loadActivities()
+}
+
+const handleCategory = async (name: string) => {
+  const category = categories.value.find((item) => item.name === name)
+  currentType.value = category?.type || ''
+  await loadActivities()
 }
 
 const handleViewAll = () => {
-  uni.showToast({ title: '查看全部活动', icon: 'none' })
+  uni.navigateTo({ url: '/pages/activity/activity' })
 }
 
-const handleViewDetail = (activity: any) => {
+const handleViewDetail = (activity: ActivityCard) => {
   uni.navigateTo({ url: `/pages/activity-detail/activity-detail?id=${activity.id}` })
 }
 
-const toggleFavorite = (activity: any) => {
+const toggleFavorite = (activity: ActivityCard) => {
   activity.isFavorited = !activity.isFavorited
   uni.showToast({
     title: activity.isFavorited ? '已收藏' : '已取消收藏',

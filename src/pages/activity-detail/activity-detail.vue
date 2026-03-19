@@ -59,7 +59,8 @@
             <view
               class="progress-bar-fill"
               :style="{ width: enrollmentPercent + '%', backgroundColor: progressColor }"
-            ></view>
+            >
+            </view>
           </view>
         </view>
         <text class="progress-tip" :style="{ color: progressColor }">{{ progressTip }}</text>
@@ -123,6 +124,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import {
+  getActivityDetail,
+  enterActivity,
+  cancelActivity,
+  getRegistrationRule,
+  getSignCode,
+} from '@/services/activity'
 
 // Note: In a real app, you would fetch details via HTTP using the ID passed in onLoad.
 // For now, we mock the detailed data.
@@ -142,6 +150,7 @@ interface ActivityDetail {
   capacity: number
   description: string
   rules?: string
+  registrationRuleId?: string
   isFavorited: boolean
   isEnrolled: boolean
   needsCheckin: boolean
@@ -161,6 +170,7 @@ const activityData = ref<ActivityDetail>({
   joined: 0,
   capacity: 100,
   description: '',
+  registrationRuleId: undefined,
   isFavorited: false,
   isEnrolled: false,
   needsCheckin: false,
@@ -189,39 +199,64 @@ const progressTip = computed(() => {
 
 onLoad((options) => {
   const id = options?.id || '1'
-  fetchMockDetail(id)
+  fetchDetail(id)
 })
 
-const fetchMockDetail = (id: string | number) => {
-  // Mock data simulation based on ID
-  // In reality, replace this with your HTTP request: `const res = await http({ url: `/activity/${id}` })`
-  uni.showLoading({ title: '加载中...' })
+const formatTimeRange = (start?: string, end?: string) => {
+  if (!start && !end) return ''
+  const s = start ? new Date(start) : null
+  const e = end ? new Date(end) : null
+  if (s && e) return `${s.toLocaleString('zh-CN')} - ${e.toLocaleString('zh-CN')}`
+  if (s) return s.toLocaleString('zh-CN')
+  return e ? e.toLocaleString('zh-CN') : ''
+}
 
-  setTimeout(() => {
+const fetchDetail = async (id: string | number) => {
+  try {
+    uni.showLoading({ title: '加载中...' })
+    const res = await getActivityDetail(String(id))
+    const d: any = res.data
+
     activityData.value = {
-      id,
-      title: '“青春律动” 校园街舞争霸赛决赛，邀你共同见证冠军诞生',
-      cover:
-        'https://images.unsplash.com/photo-1518834107812-6aed9cecdbb4?q=80&w=800&auto=format&fit=crop',
-      status: '报名中',
-      statusType: 'active',
-      categoryName: '文艺演出',
-      tags: ['街舞', '综测加分+', '校级'],
-      time: '2026年10月24日 (本周五) 18:30 - 21:00',
-      location: '大学生活动中心 - 主舞台',
-      organizer: '校团委 & 街舞社',
-      joined: 178,
-      capacity: 200,
-      description:
-        '燃爆全场的青春战歌！本届“青春律动”校园街舞争霸赛历时一个月，经过激烈的海选、初赛与半决赛，最终有十二支顶尖校园战队脱颖而出，杀入总决赛。\n\n届时不仅有震撼的齐舞表演，还会有1v1 Battle，不容错过的视听盛宴！欢迎全体师生前来观摩打Call！',
-      rules:
-        '1. 请提前15分钟验票入场，切勿大声喧哗影响他人观演。\n2. 如无法参加，请至少提前 2 小时取消报名，释放名额。',
+      id: d.id,
+      title: d.name || d.title || '活动详情',
+      cover: d.image1 || d.image2 || d.image3 || '',
+      status: d.status || '',
+      statusType:
+        (d.status && String(d.status).includes('结束')) || (d.number && d.hot >= d.number)
+          ? 'disabled'
+          : 'active',
+      categoryName: d.type || '',
+      tags: [],
+      time: formatTimeRange(d.startTime, d.endTime),
+      location: d.address || '',
+      organizer: d.organizer || '',
+      joined: Number(d.hot) || 0,
+      capacity: Number(d.number) || 0,
+      description: d.description || '',
+      rules: d.rule || (d.registrationRule && d.registrationRule.description) || undefined,
+      registrationRuleId:
+        d.registrationRuleId ||
+        d.ruleId ||
+        (d.registrationRule && d.registrationRule.id) ||
+        undefined,
       isFavorited: false,
-      isEnrolled: false,
-      needsCheckin: true,
+      // try multiple possible flags returned by backend to infer enrollment
+      isEnrolled: !!(
+        d.isEnter ||
+        d.entered ||
+        d.hasEnter ||
+        d.isEnrolled ||
+        d.joinFlag ||
+        d.enrolled
+      ),
+      needsCheckin: !!(d.registrationRuleId || d.ruleId || d.registrationRule),
     }
+  } catch (err) {
+    console.error('fetchDetail error', err)
+  } finally {
     uni.hideLoading()
-  }, 500)
+  }
 }
 
 // Action Handlers
@@ -234,33 +269,76 @@ const toggleFavorite = () => {
   })
 }
 
-const handleCheckin = () => {
+const handleCheckin = async () => {
   if (!activityData.value.isEnrolled) {
     uni.showToast({ title: '请先报名活动后再打卡', icon: 'none' })
     return
   }
-  // Mock Check-in Logic
-  uni.showLoading({ title: '定位中...' })
-  setTimeout(() => {
+
+  try {
+    uni.showLoading({ title: '获取签到规则...' })
+    // determine rule id (prefer explicit rule id if available)
+    const ruleId = activityData.value.registrationRuleId || String(activityData.value.id)
+    const ruleRes = await getRegistrationRule(String(ruleId))
+    const ruleData: any = ruleRes?.data
+
+    // If backend returned signBegin/signEnd, validate current time against them
+    if (ruleData) {
+      const now = Date.now()
+      const begin = ruleData.signBegin ? new Date(ruleData.signBegin).getTime() : undefined
+      const end = ruleData.signEnd ? new Date(ruleData.signEnd).getTime() : undefined
+      if (begin && now < begin) {
+        uni.showToast({ title: '未到签到开始时间', icon: 'none' })
+        return
+      }
+      if (end && now > end && ruleData.allowLateSign !== 'true') {
+        uni.showToast({ title: '签到已结束', icon: 'none' })
+        return
+      }
+    }
+
+    // 获取签到二维码
+    uni.showLoading({ title: '生成签到二维码...' })
+    const codeRes = await getSignCode(String(activityData.value.id))
+    const codeData: any = codeRes?.data
     uni.hideLoading()
-    uni.showToast({ title: '打卡成功！', icon: 'success' })
-  }, 800)
+
+    // 如果返回二维码图片地址，使用图片预览展示；若返回 signCode，则显示文本
+    if (codeData && codeData.qrUrl) {
+      uni.previewImage({ urls: [codeData.qrUrl] })
+    } else if (codeData && codeData.signCode) {
+      uni.showModal({ title: '签到二维码', content: `签到码：${codeData.signCode}` })
+    } else if (typeof codeRes?.data === 'string') {
+      // 有些后端直接返回图片地址字符串
+      uni.previewImage({ urls: [String(codeRes.data)] })
+    } else {
+      uni.showToast({ title: '未能获取签到信息', icon: 'none' })
+    }
+  } catch (err) {
+    console.error('checkin error', err)
+    uni.showToast({ title: '获取签到失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
 }
 
-const handleEnroll = () => {
-  // Mock Enroll
+const handleEnroll = async () => {
   uni.showModal({
     title: '确认报名',
     content: `是否确认报名参加《${activityData.value.title.substring(0, 10)}...》？`,
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        uni.showLoading({ title: '处理中' })
-        setTimeout(() => {
+        try {
+          uni.showLoading({ title: '处理中' })
+          await enterActivity(String(activityData.value.id))
           activityData.value.isEnrolled = true
           activityData.value.joined += 1
-          uni.hideLoading()
           uni.showToast({ title: '报名成功', icon: 'success' })
-        }, 600)
+        } catch (err) {
+          console.error('enroll error', err)
+        } finally {
+          uni.hideLoading()
+        }
       }
     },
   })
@@ -271,15 +349,19 @@ const handleCancelEnroll = () => {
     title: '取消报名',
     content: '取消后可能无法再次获得名额，是否确认取消？',
     confirmColor: '#FF4D4F',
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        uni.showLoading({ title: '处理中' })
-        setTimeout(() => {
+        try {
+          uni.showLoading({ title: '处理中' })
+          await cancelActivity(String(activityData.value.id))
           activityData.value.isEnrolled = false
           activityData.value.joined = Math.max(0, activityData.value.joined - 1)
-          uni.hideLoading()
           uni.showToast({ title: '已取消报名', icon: 'none' })
-        }, 600)
+        } catch (err) {
+          console.error('cancel enroll error', err)
+        } finally {
+          uni.hideLoading()
+        }
       }
     },
   })
@@ -330,9 +412,11 @@ const handleCancelEnroll = () => {
     &.active {
       background: rgba(39, 186, 155, 0.9);
     }
+
     &.warning {
       background: rgba(250, 173, 20, 0.9);
     }
+
     &.disabled {
       background: rgba(153, 153, 153, 0.9);
     }
@@ -343,7 +427,8 @@ const handleCancelEnroll = () => {
 .content-wrapper {
   position: relative;
   z-index: 10;
-  margin-top: -60rpx; /* overlap with hero */
+  margin-top: -60rpx;
+  /* overlap with hero */
   padding: 0 30rpx;
 }
 
@@ -399,6 +484,7 @@ const handleCancelEnroll = () => {
     .icon-wrap {
       width: 48rpx;
       padding-top: 4rpx;
+
       .icon {
         font-size: 32rpx;
       }
@@ -442,6 +528,7 @@ const handleCancelEnroll = () => {
     .progress-count {
       font-size: 26rpx;
       color: #666;
+
       .highlight {
         color: #27ba9b;
         font-weight: bold;
@@ -508,13 +595,15 @@ const handleCancelEnroll = () => {
       line-height: 1.6;
       display: block;
       margin-bottom: 20rpx;
-      white-space: pre-wrap; /* Keeps newlines intact */
+      white-space: pre-wrap;
+      /* Keeps newlines intact */
     }
   }
 }
 
 .bottom-spacer {
-  height: 140rpx; /* Space for action bar */
+  height: 140rpx;
+  /* Space for action bar */
 }
 
 /* Bottom Action Bar */

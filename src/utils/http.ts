@@ -16,7 +16,7 @@ import { useMemberStore } from '@/stores'
 // 使用 import.meta.env.MODE 判断环境（已添加类型声明）http://192.168.1.2:10000
 const baseURL =
   import.meta.env.MODE === 'development'
-    ? 'http://192.168.1.5:8080' // 本地开发用 Node 本地端口
+    ? 'http://localhost:8080' // 本地开发用 Node 本地端口
     : 'https://xklandlxy.art' // 生产环境用 HTTPS 域名
 
 // 添加请求前拦截器
@@ -50,8 +50,8 @@ const httpInterceptor = {
     const menberStore = useMemberStore()
     const token = menberStore.profile?.token
 
-    // 对于 request 请求，设置 Content-Type；对于 uploadFile，不设置（让系统自动处理）
-    if (!isUploadFile) {
+    // 对于 request 请求，设置默认 Content-Type；对于 uploadFile，不设置（让系统自动处理）
+    if (!isUploadFile && !options.header['Content-Type']) {
       options.header['Content-Type'] = 'application/json'
     }
 
@@ -90,6 +90,16 @@ export const http = <T>(options: UniApp.RequestOptions) => {
         const responseData = res.data as Data<T>
 
         if (res.statusCode >= 200 && res.statusCode < 300) {
+          // 文件预览/下载等二进制响应直接透传
+          if (options.responseType === 'arraybuffer') {
+            resolve({
+              code: 200,
+              message: 'success',
+              data: res.data as T,
+            })
+            return
+          }
+
           // 检查业务状态码
           if (responseData.code === 200) {
             // 3. 请求成功
