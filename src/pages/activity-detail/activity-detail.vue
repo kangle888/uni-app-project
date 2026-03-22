@@ -145,8 +145,8 @@
     </view>
 
     <!-- Comment Popup -->
-    <view v-if="commentVisible" class="comment-popup-mask" @tap.self="closeCommentPopup">
-      <view class="comment-popup">
+    <uni-popup ref="commentPopupRef" type="bottom" :mask-click="true">
+      <view class="comment-popup settings-popup">
         <view class="comment-popup-header">
           <text class="comment-popup-title">活动评论</text>
           <text class="comment-popup-close" @tap="closeCommentPopup">×</text>
@@ -173,7 +173,7 @@
           <button class="comment-btn" @tap="handleSubmitComment">发布</button>
         </view>
       </view>
-    </view>
+    </uni-popup>
   </view>
 </template>
 
@@ -261,6 +261,7 @@ const qrVisible = ref(false)
 const qrToken = ref('')
 const qrDataUrl = ref('')
 const qrError = ref('')
+const commentPopupRef = ref<any>(null)
 
 // Computed properties for progress bar
 const enrollmentPercent = computed(() => {
@@ -328,7 +329,7 @@ const fetchComments = async () => {
 }
 
 const openCommentPopup = async () => {
-  commentVisible.value = true
+  commentPopupRef.value.open()
   try {
     await fetchComments()
   } catch (err) {
@@ -337,7 +338,7 @@ const openCommentPopup = async () => {
 }
 
 const closeCommentPopup = () => {
-  commentVisible.value = false
+  commentPopupRef.value.close()
 }
 
 const fetchDetail = async (id: string | number) => {
@@ -947,16 +948,9 @@ const handleSubmitComment = async () => {
 }
 
 /* Comment Popup */
-.comment-popup-mask {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 210;
-  display: flex;
-  align-items: flex-end;
+.settings-popup {
+  padding: 40rpx 40rpx calc(60rpx + env(safe-area-inset-bottom));
+  max-height: 80vh;
 }
 
 .comment-popup {
@@ -964,7 +958,6 @@ const handleSubmitComment = async () => {
   max-height: 80vh;
   background: #fff;
   border-radius: 28rpx 28rpx 0 0;
-  padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

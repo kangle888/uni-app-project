@@ -93,6 +93,7 @@ import {
   getFavoriteList,
   favoriteActivity,
   cancelFavoriteActivity,
+  downloadAttachment,
 } from '@/services/activity'
 import { useMemberStore } from '@/stores'
 
@@ -137,7 +138,26 @@ const statusTypeFrom = (status?: string, hot?: number, number?: number) => {
   }
   return 'active'
 }
+const getMimeType = (fileName: string) => {
+  const lower = fileName.toLowerCase()
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  return 'image/jpeg'
+}
 
+const getImageUrl = async (fileName?: string) => {
+  if (!fileName) return ''
+  try {
+    const res = await downloadAttachment(fileName)
+    const buffer = res?.data as ArrayBuffer
+    if (!buffer) return ''
+    const base64 = uni.arrayBufferToBase64(buffer)
+    return `data:${getMimeType(fileName)};base64,${base64}`
+  } catch {
+    return ''
+  }
+}
 const loadActivities = async () => {
   isLoading.value = true
   try {
@@ -163,23 +183,28 @@ const loadActivities = async () => {
     })
 
     const records = pageRes?.data?.records || []
-    allActivities.value = records.map((d: any) => {
-      const fav = favoriteMap.get(String(d.id))
-      return {
-        id: d.id,
-        favoriteId: fav?.id || '',
-        categoryId: d.type || '未分类',
-        title: d.name || '未命名活动',
-        cover: defaultCover,
-        status: d.status || '未知状态',
-        statusType: statusTypeFrom(d.status, d.hot, d.number),
-        time: formatTimeRange(d.startTime, d.endTime),
-        location: d.address || '未设置地点',
-        joined: Number(d.hot) || 0,
-        capacity: Number(d.number) || 0,
-        isFavorited: !!fav,
-      }
-    })
+    allActivities.value = await Promise.all(
+      records.map(async (d: any) => {
+        console.log('Processing activity', d)
+        const fav = favoriteMap.get(String(d.id))
+        const fileName = d?.image1
+        const coverUrl = await getImageUrl(fileName)
+        return {
+          id: d.id,
+          favoriteId: fav?.id || '',
+          categoryId: d.type || '未分类',
+          title: d.name || '未命名活动',
+          cover: coverUrl || defaultCover,
+          status: d.status || '未知状态',
+          statusType: statusTypeFrom(d.status, d.hot, d.number),
+          time: formatTimeRange(d.startTime, d.endTime),
+          location: d.address || '未设置地点',
+          joined: Number(d.hot) || 0,
+          capacity: Number(d.number) || 0,
+          isFavorited: !!fav,
+        }
+      }),
+    )
   } catch (err) {
     allActivities.value = []
     console.error('loadActivities error', err)
