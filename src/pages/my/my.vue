@@ -3,7 +3,12 @@ import { computed, ref, reactive } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores'
 import { updateUserInfo, resetPassword, updatePassword, getCurrentUserInfo } from '@/services/login'
-import { getEnterList, getFavoriteList, getUserBehaviorCount } from '@/services/activity'
+import {
+  getEnterList,
+  getFavoriteList,
+  getUserBehaviorCount,
+  getViewList,
+} from '@/services/activity'
 
 const memberStore = useMemberStore()
 const loading = ref(false)
@@ -221,6 +226,104 @@ const behaviorTotal = computed(() => {
   return stats.value.totalJoins + stats.value.favorites + stats.value.history
 })
 
+const loadingList = ref(false)
+const activityPopupRef = ref<any>()
+const activeTab = ref<'favorite' | 'enter' | 'history'>('favorite')
+const favoriteList = ref<any[]>([])
+const enterList = ref<any[]>([])
+const historyList = ref<any[]>([])
+
+const activeList = computed(() => {
+  if (activeTab.value === 'enter') return enterList.value
+  if (activeTab.value === 'history') return historyList.value
+  return favoriteList.value
+})
+
+const activeTitle = computed(() => {
+  if (activeTab.value === 'enter') return '我的报名'
+  if (activeTab.value === 'history') return '历史浏览'
+  return '我的收藏'
+})
+
+const listEmptyText = computed(() => {
+  if (activeTab.value === 'enter') return '暂无报名活动'
+  if (activeTab.value === 'history') return '暂无浏览记录'
+  return '暂无收藏活动'
+})
+
+const normalizeActivity = (item: any) => {
+  const id = item.activityId || item.id
+  return {
+    id,
+    activityId: item.activityId || item.id,
+    name: item.activityName || item.name || '未命名活动',
+    startTime: item.activityStartTime || item.startTime || '',
+    endTime: item.activityEndTime || item.endTime || '',
+    location: item.activityLocation || item.location || '待定',
+    type: item.activityType || item.type || '',
+    status: item.status || '',
+  }
+}
+
+const formatTimeRange = (start?: string, end?: string) => {
+  if (!start && !end) return '时间待定'
+  if (start && end) return `${start} - ${end}`
+  return start || end || '时间待定'
+}
+
+const openActivityPopup = (tab: 'favorite' | 'enter' | 'history') => {
+  if (!isLogin.value) {
+    goToLogin()
+    return
+  }
+  activeTab.value = tab
+  activityPopupRef.value?.open?.('bottom')
+  loadActivityList(tab)
+}
+
+const loadActivityList = async (tab = activeTab.value) => {
+  if (!memberStore.profile?.token) return
+  loadingList.value = true
+  try {
+    if (tab === 'favorite') {
+      const res: any = await getFavoriteList({
+        pageNum: 1,
+        pageSize: 20,
+        query: { userId: memberStore.profile?.id, status: '已收藏' },
+      })
+      favoriteList.value = (res?.data?.records || []).map(normalizeActivity)
+      return
+    }
+
+    if (tab === 'enter') {
+      const res: any = await getEnterList({
+        pageNum: 1,
+        pageSize: 20,
+        query: { userId: memberStore.profile?.id, status: '已报名' },
+      })
+      enterList.value = (res?.data?.records || []).map(normalizeActivity)
+      return
+    }
+
+    const historyRes: any = await getViewList({
+      pageNum: 1,
+      pageSize: 20,
+      query: { userId: memberStore.profile?.id },
+    })
+    historyList.value = (historyRes?.data?.records || []).map(normalizeActivity)
+  } catch (err) {
+    console.error('loadActivityList error', err)
+  } finally {
+    loadingList.value = false
+  }
+}
+
+const goActivityDetail = (activityId: string) => {
+  if (!activityId) return
+  activityPopupRef.value?.close?.()
+  uni.navigateTo({ url: `/pages/activity-detail/activity-detail?id=${activityId}` })
+}
+
 const chartData = computed(() => {
   const total = behaviorTotal.value
   const raw = [
@@ -326,17 +429,17 @@ onShow(() => {
     <view class="content-wrapper">
       <!-- Quick Navigation Grid -->
       <view class="quick-grid card">
-        <view class="grid-item" @tap="showToast('我的收藏')">
+        <view class="grid-item" @tap="openActivityPopup('favorite')">
           <text class="grid-num">{{ stats.favorites }}</text>
           <text class="grid-label">我的收藏</text>
         </view>
         <view class="grid-divider"></view>
-        <view class="grid-item" @tap="showToast('历史浏览')">
+        <view class="grid-item" @tap="openActivityPopup('history')">
           <text class="grid-num">{{ stats.history }}</text>
           <text class="grid-label">历史浏览</text>
         </view>
         <view class="grid-divider"></view>
-        <view class="grid-item" @tap="showToast('我的报名')">
+        <view class="grid-item" @tap="openActivityPopup('enter')">
           <text class="grid-num">{{ stats.totalJoins }}</text>
           <text class="grid-label">我的报名</text>
         </view>
@@ -524,6 +627,75 @@ onShow(() => {
         <view class="popup-footer">
           <button class="save-btn" @tap="submitUpdatePwd" :disabled="loading">确认修改</button>
         </view>
+      </view>
+    </uni-popup>
+
+    <uni-popup
+      ref="activityPopupRef"
+      type="bottom"
+      background-color="#fff"
+      border-radius="32rpx 32rpx 0 0"
+    >
+      <view class="activity-popup">
+        <view class="popup-header">
+          <text class="popup-title">{{ activeTitle }}</text>
+          <text class="popup-close" @tap="activityPopupRef?.close?.()">×</text>
+        </view>
+
+        <view class="activity-tabs">
+          <view
+            class="tab-item"
+            :class="{ active: activeTab === 'favorite' }"
+            @tap="
+              activeTab = 'favorite'
+              loadActivityList('favorite')
+            "
+          >
+            我的收藏
+          </view>
+          <view
+            class="tab-item"
+            :class="{ active: activeTab === 'enter' }"
+            @tap="
+              activeTab = 'enter'
+              loadActivityList('enter')
+            "
+          >
+            我的报名
+          </view>
+          <view
+            class="tab-item"
+            :class="{ active: activeTab === 'history' }"
+            @tap="
+              activeTab = 'history'
+              loadActivityList('history')
+            "
+          >
+            历史浏览
+          </view>
+        </view>
+
+        <scroll-view scroll-y class="activity-list-scroll">
+          <view v-if="loadingList" class="list-placeholder">加载中...</view>
+          <view v-else-if="!activeList.length" class="list-placeholder">{{ listEmptyText }}</view>
+          <view
+            v-else
+            class="activity-card"
+            v-for="item in activeList"
+            :key="`${activeTab}-${item.id}`"
+            @tap="goActivityDetail(item.activityId)"
+          >
+            <view class="activity-card-header">
+              <text class="activity-title">{{ item.name }}</text>
+              <text class="activity-type" v-if="item.type">{{ item.type }}</text>
+            </view>
+            <text class="activity-time">{{ formatTimeRange(item.startTime, item.endTime) }}</text>
+            <view class="activity-card-footer">
+              <text class="activity-location">{{ item.location || '地点待定' }}</text>
+              <text class="activity-status" v-if="item.status">{{ item.status }}</text>
+            </view>
+          </view>
+        </scroll-view>
       </view>
     </uni-popup>
   </view>
@@ -891,6 +1063,125 @@ onShow(() => {
       &:active {
         transform: scale(0.98);
         opacity: 0.9;
+      }
+    }
+  }
+}
+
+.activity-popup {
+  padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
+  max-height: 75vh;
+
+  .popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22rpx;
+
+    .popup-title {
+      font-size: 34rpx;
+      font-weight: 700;
+      color: #222;
+    }
+
+    .popup-close {
+      font-size: 48rpx;
+      color: #999;
+      line-height: 1;
+    }
+  }
+
+  .activity-tabs {
+    display: flex;
+    background: #f5f7fa;
+    border-radius: 16rpx;
+    padding: 8rpx;
+    margin-bottom: 20rpx;
+
+    .tab-item {
+      flex: 1;
+      text-align: center;
+      font-size: 25rpx;
+      color: #666;
+      padding: 14rpx 0;
+      border-radius: 12rpx;
+
+      &.active {
+        background: #fff;
+        color: #3a64e8;
+        font-weight: 700;
+      }
+    }
+  }
+
+  .activity-list-scroll {
+    max-height: 56vh;
+  }
+
+  .list-placeholder {
+    text-align: center;
+    color: #999;
+    font-size: 26rpx;
+    padding: 80rpx 0;
+  }
+
+  .activity-card {
+    background: #fff;
+    border-radius: 18rpx;
+    padding: 24rpx;
+    box-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.05);
+    margin-bottom: 16rpx;
+
+    &:active {
+      opacity: 0.85;
+    }
+
+    .activity-card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12rpx;
+      align-items: center;
+      margin-bottom: 12rpx;
+
+      .activity-title {
+        font-size: 30rpx;
+        color: #222;
+        font-weight: 700;
+        flex: 1;
+      }
+
+      .activity-type {
+        font-size: 22rpx;
+        color: #3a64e8;
+        background: #eef3ff;
+        padding: 6rpx 12rpx;
+        border-radius: 999rpx;
+      }
+    }
+
+    .activity-time {
+      display: block;
+      font-size: 24rpx;
+      color: #666;
+      margin-bottom: 12rpx;
+    }
+
+    .activity-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .activity-location {
+        font-size: 24rpx;
+        color: #888;
+      }
+
+      .activity-status {
+        font-size: 22rpx;
+        color: #ff7a45;
+        background: #fff4eb;
+        padding: 6rpx 12rpx;
+        border-radius: 999rpx;
       }
     }
   }

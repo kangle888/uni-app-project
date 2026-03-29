@@ -136,6 +136,22 @@ export const getUserBehaviorCount = () => {
   })
 }
 
+// 历史浏览活动列表
+export const getViewList = (data: SysActivityPageParams & Record<string, any>) => {
+  const { pageNum, pageSize, order, orderBy, query: innerQuery, ...restQuery } = data
+  return http({
+    url: `/viewActivity/listView`,
+    method: 'POST',
+    data: {
+      pageNum,
+      pageSize,
+      order,
+      orderBy,
+      query: innerQuery || restQuery,
+    },
+  })
+}
+
 // /registrationRule/info 获取签到规则
 export const getRegistrationRule = (ruleId: string) => {
   return http({
