@@ -12,31 +12,54 @@ import { useMemberStore } from '@/stores'
  * 3. 添加小程序端请求头标识
  * 4. 添加token 请求头标识
  */
-const baseURL = 'https://pcapi-xiaotuxian-front-devtest.itheima.net'
+// 根据环境配置 baseURL，开发环境可以改为你的后端地址
+// 使用 import.meta.env.MODE 判断环境（已添加类型声明）http://192.168.1.2:10000
+const baseURL =
+  import.meta.env.MODE === 'development'
+    ? 'http://192.168.1.4:8080' // 本地开发用 Node 本地端口
+    : 'https://xklandlxy.art' // 生产环境用 HTTPS 域名
 
 // 添加请求前拦截器
 const httpInterceptor = {
   // 拦截前触发
-  invoke(options: UniApp.RequestOptions) {
+  invoke(options: UniApp.RequestOptions | UniApp.UploadFileOption) {
     // 1. 非http 开头的请求地址，自动添加前缀
     if (!options.url.startsWith('http')) {
+      // 如果 URL 不是以 /demo 开头，则添加 /demo 前缀
+      if (!options.url.startsWith('/demo')) {
+        options.url = '/demo' + options.url
+      }
       options.url = baseURL + options.url
     }
-    // 2. 请求超时, 默认 10s
-    options.timeout = 10000
-    // 3. 添加小程序端请求头标识
-    options.header = {
-      ...options.header,
-      'source-client': 'miniapp',
+    console.log('请求地址：', options.url)
+    // 判断是否是文件上传请求
+    const isUploadFile = 'filePath' in options
+
+    // 2. 请求超时, 默认 10s（uploadFile 可能不支持 timeout）
+    if ('timeout' in options) {
+      options.timeout = 10000
     }
-    // 4. 添加token 请求头标识
+
+    // 3. 初始化 header
+    if (!options.header) {
+      options.header = {}
+    }
+
+    // 4. 添加小程序端请求头标识和 token
+    // 在这里懒加载 store，避免引发 uniapp getApp().$vm undefined 报错
     const menberStore = useMemberStore()
     const token = menberStore.profile?.token
+
+    // 对于 request 请求，设置默认 Content-Type；对于 uploadFile，不设置（让系统自动处理）
+    if (!isUploadFile && !options.header['Content-Type']) {
+      options.header['Content-Type'] = 'application/json'
+    }
+
+    options.header['source-client'] = 'miniapp'
+
+    // 5. 添加token 请求头标识
     if (token) {
-      options.header = {
-        ...options.header,
-        Authorization: `Bearer ${token}`,
-      }
+      options.header['access-token'] = `${token}`
     }
   },
 }
@@ -51,9 +74,9 @@ uni.addInterceptor('uploadFile', httpInterceptor)
  *
  */
 interface Data<T> {
-  code: string
-  msg: string
-  result: T
+  code: number
+  message: string
+  data: T
 }
 
 // 添加类型
@@ -64,9 +87,31 @@ export const http = <T>(options: UniApp.RequestOptions) => {
     uni.request({
       ...options,
       success: (res) => {
+        const responseData = res.data as Data<T>
+
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          // 3. 请求成功
-          resolve(res.data as Data<T>)
+          // 文件预览/下载等二进制响应直接透传
+          if (options.responseType === 'arraybuffer') {
+            resolve({
+              code: 200,
+              message: 'success',
+              data: res.data as T,
+            })
+            return
+          }
+
+          // 检查业务状态码
+          if (responseData.code === 200) {
+            // 3. 请求成功
+            resolve(responseData)
+          } else {
+            // 业务逻辑错误
+            uni.showToast({
+              title: responseData.message || '请求失败',
+              icon: 'none',
+            })
+            reject(res)
+          }
         } else if (res.statusCode === 401) {
           // 4. 401 未授权 -> 清理用户信息 -> 跳转登录页
           const menberStore = useMemberStore()
@@ -74,9 +119,9 @@ export const http = <T>(options: UniApp.RequestOptions) => {
           uni.navigateTo({ url: '/pages/login/login' })
           reject(res) // 标记失败
         } else {
-          // 5. 其他错误
+          // 5. 其他HTTP错误
           uni.showToast({
-            title: (res.data as Data<T>).msg || '请求失败',
+            title: responseData?.message || '请求失败',
             icon: 'none',
           })
           reject(res) // 标记失败

@@ -17,7 +17,14 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "首页"
+        "navigationBarTitleText": "首页",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/activity/activity",
+      "style": {
+        "navigationBarTitleText": "活动"
       }
     },
     {
@@ -27,15 +34,21 @@
       }
     },
     {
-      "path": "pages/cart/cart",
+      "path": "pages/activity-detail/activity-detail",
       "style": {
-        "navigationBarTitleText": "购物车"
+        "navigationBarTitleText": "活动详情",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationBarTextStyle": "black"
       }
     },
     {
-      "path": "pages/category/category",
+      "path": "pages/hot-activity/hot-activity",
       "style": {
+<<<<<<< HEAD
         "navigationBarTitleText": "分类"
+=======
+        "navigationBarTitleText": "热门活动"
+>>>>>>> 410591b43124e792a1c7c2be6b733125e13731f6
       }
     }
   ],
@@ -47,7 +60,7 @@
   },
   // 设置 TabBar
   "tabBar": {
-    "color": "#333",
+    "color": "#7A7E83",
     "selectedColor": "#27ba9b",
     "backgroundColor": "#fff",
     "borderStyle": "white",
@@ -59,16 +72,10 @@
         "selectedIconPath": "static/tabs/home_selected.png"
       },
       {
-        "text": "分类",
-        "pagePath": "pages/category/category",
+        "text": "活动",
+        "pagePath": "pages/activity/activity",
         "iconPath": "static/tabs/category_default.png",
         "selectedIconPath": "static/tabs/category_selected.png"
-      },
-      {
-        "text": "购物车",
-        "pagePath": "pages/cart/cart",
-        "iconPath": "static/tabs/cart_default.png",
-        "selectedIconPath": "static/tabs/cart_selected.png"
       },
       {
         "text": "我的",

@@ -13,7 +13,10 @@ declare module 'vue' {
     view: any
     text: any
     button: any
+<<<<<<< HEAD
 
+=======
+>>>>>>> 410591b43124e792a1c7c2be6b733125e13731f6
     // uni-ui 组件（按需继续补充）
     'uni-section': any
     'uni-card': any

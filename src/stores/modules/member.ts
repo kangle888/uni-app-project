@@ -1,12 +1,27 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+export interface MemberInfo {
+  token: string
+  username?: string
+  nickname?: string
+  avatar?: string
+  mobile?: string
+  email?: string
+  id?: string
+  sex?: string | number
+  collegeName?: string
+  [key: string]: any // allow other dynamic fields
+}
+
 // 定义 Store
 export const useMemberStore = defineStore(
   'member',
   () => {
     // 会员信息
-    const profile = ref<any>()
+    const profile = ref<MemberInfo>()
+    // 待加入的房间邀请码（扫码进入但未登录时保存）
+    const pendingInviteCode = ref<string>('')
 
     // 保存会员信息，登录时使用
     const setProfile = (val: any) => {
@@ -18,19 +33,30 @@ export const useMemberStore = defineStore(
       profile.value = undefined
     }
 
+    // 设置待加入的邀请码
+    const setPendingInviteCode = (code: string) => {
+      pendingInviteCode.value = code
+    }
+
+    // 清除待加入的邀请码
+    const clearPendingInviteCode = () => {
+      pendingInviteCode.value = ''
+    }
+
     // 记得 return
     return {
       profile,
+      pendingInviteCode,
       setProfile,
       clearProfile,
+      setPendingInviteCode,
+      clearPendingInviteCode,
     }
   },
-  // TODO: 持久化
   {
-    // 这个是网页端配置
-    // persist: true,
-    // 小程序端配置
     persist: {
+      key: 'member-profile',
+      paths: ['profile', 'pendingInviteCode'],
       storage: {
         getItem: (key: string) => {
           return uni.getStorageSync(key)
