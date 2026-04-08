@@ -1,395 +1,71 @@
 <template>
-  <!-- 使用 canvas 元素来渲染图表 -->
-  <div class="top-area">
-    <div class="top-title">KA装机量</div>
-    <div @click="handleLoginOut">
-      <img class="login-out-img" src="../../static/images/quit.png" alt="" />
-    </div>
-  </div>
+  <view class="page">
+    <view class="card">
+      <view class="title">uni-app 模板首页</view>
+      <view class="desc">当前已完成：微信登录 + 手机号授权登录流程模板</view>
+      <view class="token">token: {{ token || '未登录' }}</view>
 
-  <div class="charts-box">
-    <qiun-data-charts type="line" :opts="opts" :chartData="chartData" />
-  </div>
-
-  <div class="bottom-area">
-    <img class="img" src="../../static/images/g.png" alt="" srcset="" />
-    <div class="right-bgc">
-      <img
-        class="img-bgc-top"
-        src="../../static/images/e.png"
-        alt=""
-        srcset=""
-      />
-      <img
-        class="img-bgc-bottom"
-        src="../../static/images/f.png"
-        alt=""
-        srcset=""
-      />
-    </div>
-    <div class="show-data">
-      <div class="left">
-        <div class="top-title-ka">KA项目</div>
-        <div class="list-item" v-for="(item, index) in kaList1" :key="index">
-          <span class="item-id">
-            {{ (index + 1).toString().padStart(2, '0') }}</span
-          >
-          <span class="item-code">{{ item.code }}</span>
-        </div>
-      </div>
-      <div class="right">
-        <div class="right-top">
-          <div class="top-title-win">WIN</div>
-          <div class="list-content">
-            <div
-              class="list-item"
-              v-for="(item, index) in kaList2"
-              :key="index"
-            >
-              <span class="item-id">
-                {{ (index + 1).toString().padStart(2, '0') }}</span
-              >
-              <span class="item-code">{{ item.code }}</span>
-            </div>
-          </div>
-        </div>
-        <div class="right-bottom">
-          <div class="top-title-lost">LOST</div>
-          <div class="right-botton-conten">
-            <div
-              class="list-item"
-              v-for="(item, index) in kaList2"
-              :key="index"
-            >
-              <span class="item-id">
-                {{ (index + 1).toString().padStart(2, '0') }}</span
-              >
-              <span class="item-code">{{ item.code }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- <logout-button /> -->
+      <button class="logout" @click="logout">退出登录</button>
+    </view>
+  </view>
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
-import { getKaListAPI, getKaNumberAPI } from '@/services/kaItem'
-import {
-  onPullDownRefresh,
-  onShareAppMessage,
-  onShareTimeline,
-  onShow,
-} from '@dcloudio/uni-app'
-import { type KaProjectItem } from '@/types/kaItems'
+import { ref, onMounted } from 'vue'
 
-onPullDownRefresh(() => {
-  getKaDataStateOne()
-  getKaDataStateTwo()
-  getKaList()
-  uni.stopPullDownRefresh()
-})
+const token = ref('')
 
-// 分享给好友
-onShareAppMessage(() => {
-  return {
-    title: '动善时销售项目', // 分享标题
-    path: '/pages/login/login', // 分享路径
-    imageUrl: '../../static/images/1.png', // 分享图片
+onMounted(() => {
+  token.value = uni.getStorageSync('mock_token') || ''
+  if (!token.value) {
+    uni.reLaunch({ url: '/pages/login/login' })
   }
 })
 
-// 分享到朋友圈
-onShareTimeline(() => {
-  return {
-    title: '动善时销售项目', // 分享标题
-    query: '', // 可选：分享携带的参数
-    imageUrl: '../../static/images/1.png', // 分享图片
-  }
-})
-
-const kaList1 = ref<KaProjectItem[]>([])
-const kaList2 = ref<KaProjectItem[]>([])
-
-const chartData = ref()
-const Xdata = ref<string[]>([])
-const Ydata = ref<number[]>([])
-
-onShow(async () => {
-  console.log('切换刷新吗？')
-  await Promise.all([getKaDataStateOne(), getKaDataStateTwo(), getKaList()])
-  // 等待 DOM 更新
-  await nextTick()
-  // 初始化或更新图表
-  getServerData()
-})
-
-const getKaDataStateOne = async () => {
-  const res = await getKaListAPI({ state: 1 })
-  kaList1.value = res?.data
-}
-const getKaDataStateTwo = async () => {
-  const res = await getKaListAPI({ state: 2 })
-  kaList2.value = res?.data
-}
-
-const getKaList = async () => {
-  // 清空 Xdata 和 Ydata
-  Xdata.value = []
-  Ydata.value = []
-  const res = await getKaNumberAPI()
-  //按照年份排序
-  // 按照 date 排序，并将数据分别放入 Xdata 和 Ydata
-  if (!res?.data) return
-
-  const sortedData = res?.data?.sort((a, b) => {
-    return new Date(a?.date).getTime() - new Date(b?.date).getTime()
-  })
-  sortedData.forEach((item) => {
-    Xdata.value.push(item?.date) // 将 date 放入 Xdata
-    Ydata.value.push(item?.number) // 将 number 放入 Ydata
-  })
-}
-
-const opts = {
-  color: [
-    '#163172', // 默认曲线颜色
-  ],
-  padding: [15, 10, 0, 15],
-  dataLabel: false, // 禁用数据标签
-  dataPointShape: false, // 禁用曲线上的数据点显示
-  enableScroll: false,
-  legend: { show: false },
-  xAxis: {
-    disableGrid: false, // 启用 x 轴网格线
-    gridColor: '#E0E2E9', // 网格线颜色
-    gridType: 'solid', // 实线
-    itemCount: 6, // x 轴显示的标签数量
-    fontSize: 8,
-  },
-  yAxis: {
-    disabled: true, // 不显示 y 轴数据
-    disableGrid: false, // 显示 y 轴网格
-    gridColor: '#E0E2E9', // 网格线颜色
-    gridType: 'solid', // 虚线网格
-    dashLength: 2, // 网格虚线长度
-  },
-  extra: {
-    line: {
-      type: 'curve', // 圆滑曲线
-      width: 3, // 线条宽度
-      activeType: 'hollow', // 交互样式
-      linearType: 'custom', // 允许自定义线性渐变颜色
-    },
-  },
-}
-
-const getServerData = () => {
-  console.log('getServerData')
-  setTimeout(() => {
-    let res = {
-      categories: Xdata.value, // x 轴数据
-      series: [
-        {
-          linearColor: [
-            [0, '#163172'],
-            [0.5, '#163172'],
-            [1, '#163172'],
-          ],
-          data: Ydata.value, // 数据
-          showPoint: false, // 禁用数据点显示
-        },
-      ],
-    }
-    chartData.value = JSON.parse(JSON.stringify(res))
-  }, 500)
-}
-
-const handleLoginOut = () => {
-  console.log('退出登录')
-  uni.redirectTo({
-    url: '/pages/login/login',
-  })
+const logout = () => {
+  uni.removeStorageSync('mock_token')
+  uni.reLaunch({ url: '/pages/login/login' })
 }
 </script>
 
-<style lang="scss" scoped>
-.charts-box {
-  width: 681rpx;
-  height: 429rpx;
-  background: #f6f7f8;
-  border-radius: 19rpx 19rpx 19rpx 19rpx;
-  margin-left: 34.6rpx;
-}
-.top-area {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  .top-title {
-    width: 200rpx;
-    height: 38rpx;
-    font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
-    font-weight: 500;
-    font-size: 31rpx;
-    color: #000000;
-    line-height: 38rpx;
-    font-style: normal;
-    margin: 32rpx 0 26rpx 32rpx;
-    text-align: center;
-  }
-  .login-out-img {
-    width: 125rpx;
-    height: 53.8rpx;
-    margin-right: 37.6rpx;
-  }
-}
-.top-title-ka {
-  width: 200rpx;
-  height: 38rpx;
-  font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
-  font-weight: 500;
-  font-size: 31rpx;
-  color: #000000;
-  line-height: 38rpx;
-  font-style: normal;
-  margin: 19rpx 0 0rpx 0rpx;
-  text-align: center;
+<style scoped lang="scss">
+.page {
+  min-height: 100vh;
+  background: #f7f8fa;
+  padding: 32rpx;
 }
 
-.line-pic-content {
-  width: 681rpx;
-  height: 429rpx;
-  background: #f6f7f8;
-  border-radius: 19rpx 19rpx 19rpx 19rpx;
-  text-align: center;
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 36rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.05);
 }
 
-.bottom-area {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  margin-top: 27rpx;
-
-  .img {
-    width: 328.8rpx;
-    height: 678.8rpx;
-  }
-  .right-bgc {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-left: 23rpx;
-    .img-bgc-top {
-      width: 328.8rpx;
-      height: 384.6rpx;
-    }
-    .img-bgc-bottom {
-      width: 328.8rpx;
-      height: 294.2rpx;
-    }
-  }
-
-  .show-data {
-    position: absolute;
-    top: 0;
-    left: 34.6rpx;
-    width: 680rpx;
-    height: 621rpx;
-    display: flex;
-
-    .left {
-      width: 50%;
-    }
-
-    .right {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-left: 23rpx;
-      height: 678.8rpx;
-      .right-top {
-        .top-title-win {
-          height: 38rpx;
-          font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
-          font-weight: 500;
-          font-size: 31rpx;
-          color: #000000;
-          line-height: 38rpx;
-          font-style: normal;
-          margin: 19.2rpx 0 0 48.3rpx;
-        }
-        width: 328.8rpx;
-        height: 384.6rpx;
-        .list-content {
-          height: 300rpx;
-          overflow-x: auto;
-          .list-item {
-            border-bottom: 2rpx solid #b7e2bd;
-            height: 51.5rpx;
-            line-height: 65rpx;
-          }
-          .list-item:last-child {
-            border-bottom: none;
-          }
-        }
-      }
-      .right-bottom {
-        width: 328.8rpx;
-        height: 294.2rpx;
-        .top-title-lost {
-          height: 38rpx;
-          font-family: Alibaba PuHuiTi, Alibaba PuHuiTi;
-          font-weight: 500;
-          font-size: 31rpx;
-          color: #000000;
-          line-height: 38rpx;
-          font-style: normal;
-          margin: 19.2rpx 0 0 50.3rpx;
-        }
-        .right-botton-conten {
-          height: 214rpx;
-          overflow-x: auto;
-          .list-item {
-            height: 53.8rpx;
-            line-height: 65rpx;
-            border-bottom: 2rpx solid #c6cfe4;
-          }
-          .list-item:last-child {
-            border-bottom: none;
-          }
-        }
-      }
-    }
-
-    .list-item {
-      display: flex;
-      border-bottom: 2rpx solid #e0e2e9;
-      margin-left: 42.3rpx;
-      width: 258rpx;
-      height: 61.5rpx;
-      line-height: 75rpx;
-      font-weight: 400;
-      font-size: 23rpx;
-      color: #000000;
-
-      .item-id {
-        display: inline-block;
-        margin-left: 15.3rpx;
-        width: 60rpx;
-      }
-    }
-    .list-item:last-child {
-      border-bottom: none;
-    }
-  }
+.title {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #1f2d3d;
 }
-.item-code {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 190rpx;
+
+.desc {
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  color: #666;
+}
+
+.token {
+  margin-top: 20rpx;
+  font-size: 24rpx;
+  color: #889;
+  word-break: break-all;
+}
+
+.logout {
+  margin-top: 30rpx;
+  background: #163172;
+  color: #fff;
+  border: none;
+  border-radius: 12rpx;
 }
 </style>
