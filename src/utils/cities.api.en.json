@@ -1,0 +1,1189 @@
+{
+  "code": 0,
+  "data": [
+    {
+      "id": 1,
+      "name": "上海",
+      "latitude": 31.1443,
+      "longitude": 121.8083,
+      "province": "上海"
+    },
+    {
+      "id": 2,
+      "name": "丽江",
+      "latitude": 26.68,
+      "longitude": 100.246,
+      "province": "云南"
+    },
+    {
+      "id": 3,
+      "name": "大理",
+      "latitude": 25.6494,
+      "longitude": 100.319,
+      "province": "云南"
+    },
+    {
+      "id": 4,
+      "name": "德宏",
+      "latitude": 24.401,
+      "longitude": 98.5317,
+      "province": "云南"
+    },
+    {
+      "id": 5,
+      "name": "昆明",
+      "latitude": 25.1019,
+      "longitude": 102.9292,
+      "province": "云南"
+    },
+    {
+      "id": 6,
+      "name": "腾冲",
+      "latitude": 24.938,
+      "longitude": 98.485,
+      "province": "云南"
+    },
+    {
+      "id": 7,
+      "name": "西双版纳",
+      "latitude": 21.9739,
+      "longitude": 100.7606,
+      "province": "云南"
+    },
+    {
+      "id": 8,
+      "name": "迪庆",
+      "latitude": 27.7936,
+      "longitude": 99.6772,
+      "province": "云南"
+    },
+    {
+      "id": 9,
+      "name": "香格里拉",
+      "latitude": 27.7936,
+      "longitude": 99.6772,
+      "province": "云南"
+    },
+    {
+      "id": 10,
+      "name": "乌兰察布",
+      "latitude": 41.13,
+      "longitude": 113.111,
+      "province": "内蒙古"
+    },
+    {
+      "id": 11,
+      "name": "乌兰浩特",
+      "latitude": 46.1953,
+      "longitude": 122.009,
+      "province": "内蒙古"
+    },
+    {
+      "id": 12,
+      "name": "乌海",
+      "latitude": 39.7934,
+      "longitude": 106.8,
+      "province": "内蒙古"
+    },
+    {
+      "id": 13,
+      "name": "二连浩特",
+      "latitude": 43.4225,
+      "longitude": 112.097,
+      "province": "内蒙古"
+    },
+    {
+      "id": 14,
+      "name": "包头",
+      "latitude": 40.56,
+      "longitude": 109.997,
+      "province": "内蒙古"
+    },
+    {
+      "id": 15,
+      "name": "呼伦贝尔",
+      "latitude": 49.2048,
+      "longitude": 119.824,
+      "province": "内蒙古"
+    },
+    {
+      "id": 16,
+      "name": "呼和浩特",
+      "latitude": 40.8514,
+      "longitude": 111.824,
+      "province": "内蒙古"
+    },
+    {
+      "id": 17,
+      "name": "巴彦淖尔",
+      "latitude": 40.926,
+      "longitude": 107.742,
+      "province": "内蒙古"
+    },
+    {
+      "id": 18,
+      "name": "满洲里",
+      "latitude": 49.5667,
+      "longitude": 117.329,
+      "province": "内蒙古"
+    },
+    {
+      "id": 19,
+      "name": "赤峰",
+      "latitude": 42.235,
+      "longitude": 118.907,
+      "province": "内蒙古"
+    },
+    {
+      "id": 20,
+      "name": "通辽",
+      "latitude": 43.5567,
+      "longitude": 122.199,
+      "province": "内蒙古"
+    },
+    {
+      "id": 21,
+      "name": "锡林浩特",
+      "latitude": 43.9156,
+      "longitude": 115.964,
+      "province": "内蒙古"
+    },
+    {
+      "id": 22,
+      "name": "阿尔山",
+      "latitude": 47.3106,
+      "longitude": 119.911,
+      "province": "内蒙古"
+    },
+    {
+      "id": 23,
+      "name": "霍林郭勒",
+      "latitude": 45.487,
+      "longitude": 119.41,
+      "province": "内蒙古"
+    },
+    {
+      "id": 24,
+      "name": "北京",
+      "latitude": 39.5099,
+      "longitude": 116.4108,
+      "province": "北京"
+    },
+    {
+      "id": 25,
+      "name": "延吉",
+      "latitude": 42.8828,
+      "longitude": 129.451,
+      "province": "吉林"
+    },
+    {
+      "id": 26,
+      "name": "长春",
+      "latitude": 43.9962,
+      "longitude": 125.685,
+      "province": "吉林"
+    },
+    {
+      "id": 27,
+      "name": "南充",
+      "latitude": 30.795,
+      "longitude": 106.162,
+      "province": "四川"
+    },
+    {
+      "id": 28,
+      "name": "巴中",
+      "latitude": 31.7386,
+      "longitude": 107.036,
+      "province": "四川"
+    },
+    {
+      "id": 29,
+      "name": "广元",
+      "latitude": 32.3911,
+      "longitude": 105.702,
+      "province": "四川"
+    },
+    {
+      "id": 30,
+      "name": "成都",
+      "latitude": 30.319,
+      "longitude": 104.4419,
+      "province": "四川"
+    },
+    {
+      "id": 31,
+      "name": "攀枝花",
+      "latitude": 26.54,
+      "longitude": 101.799,
+      "province": "四川"
+    },
+    {
+      "id": 32,
+      "name": "泸州",
+      "latitude": 28.8522,
+      "longitude": 105.3924,
+      "province": "四川"
+    },
+    {
+      "id": 33,
+      "name": "绵阳",
+      "latitude": 31.4281,
+      "longitude": 104.741,
+      "province": "四川"
+    },
+    {
+      "id": 34,
+      "name": "达州",
+      "latitude": 31.1302,
+      "longitude": 107.429,
+      "province": "四川"
+    },
+    {
+      "id": 35,
+      "name": "阆中",
+      "latitude": 31.738,
+      "longitude": 105.976,
+      "province": "四川"
+    },
+    {
+      "id": 36,
+      "name": "天津",
+      "latitude": 39.1243,
+      "longitude": 117.346,
+      "province": "天津"
+    },
+    {
+      "id": 37,
+      "name": "中卫",
+      "latitude": 37.5731,
+      "longitude": 105.154,
+      "province": "宁夏"
+    },
+    {
+      "id": 38,
+      "name": "银川",
+      "latitude": 38.3228,
+      "longitude": 106.393,
+      "province": "宁夏"
+    },
+    {
+      "id": 39,
+      "name": "亳州",
+      "latitude": 33.87,
+      "longitude": 115.783,
+      "province": "安徽"
+    },
+    {
+      "id": 40,
+      "name": "合肥",
+      "latitude": 31.99,
+      "longitude": 116.975,
+      "province": "安徽"
+    },
+    {
+      "id": 41,
+      "name": "安庆",
+      "latitude": 30.5823,
+      "longitude": 117.05,
+      "province": "安徽"
+    },
+    {
+      "id": 42,
+      "name": "池州",
+      "latitude": 30.7403,
+      "longitude": 117.685,
+      "province": "安徽"
+    },
+    {
+      "id": 43,
+      "name": "芜湖",
+      "latitude": 31.3906,
+      "longitude": 118.408,
+      "province": "安徽"
+    },
+    {
+      "id": 44,
+      "name": "阜阳",
+      "latitude": 32.8822,
+      "longitude": 115.734,
+      "province": "安徽"
+    },
+    {
+      "id": 45,
+      "name": "黄山",
+      "latitude": 29.7333,
+      "longitude": 118.255,
+      "province": "安徽"
+    },
+    {
+      "id": 46,
+      "name": "东营",
+      "latitude": 37.271,
+      "longitude": 118.841,
+      "province": "山东"
+    },
+    {
+      "id": 47,
+      "name": "临沂",
+      "latitude": 35.0461,
+      "longitude": 118.413,
+      "province": "山东"
+    },
+    {
+      "id": 48,
+      "name": "威海",
+      "latitude": 37.1871,
+      "longitude": 122.229,
+      "province": "山东"
+    },
+    {
+      "id": 49,
+      "name": "日照",
+      "latitude": 35.405,
+      "longitude": 119.325,
+      "province": "山东"
+    },
+    {
+      "id": 50,
+      "name": "济南",
+      "latitude": 36.8572,
+      "longitude": 117.216,
+      "province": "山东"
+    },
+    {
+      "id": 51,
+      "name": "济宁",
+      "latitude": 35.292,
+      "longitude": 116.347,
+      "province": "山东"
+    },
+    {
+      "id": 52,
+      "name": "烟台",
+      "latitude": 37.6572,
+      "longitude": 120.987,
+      "province": "山东"
+    },
+    {
+      "id": 53,
+      "name": "青岛",
+      "latitude": 36.2661,
+      "longitude": 120.374,
+      "province": "山东"
+    },
+    {
+      "id": 54,
+      "name": "太原",
+      "latitude": 37.7469,
+      "longitude": 112.628,
+      "province": "山西"
+    },
+    {
+      "id": 55,
+      "name": "长治",
+      "latitude": 36.2475,
+      "longitude": 113.126,
+      "province": "山西"
+    },
+    {
+      "id": 56,
+      "name": "广州",
+      "latitude": 23.3924,
+      "longitude": 113.2988,
+      "province": "广东"
+    },
+    {
+      "id": 57,
+      "name": "惠州",
+      "latitude": 23.049,
+      "longitude": 114.601,
+      "province": "广东"
+    },
+    {
+      "id": 58,
+      "name": "揭阳",
+      "latitude": 23.552,
+      "longitude": 116.503,
+      "province": "广东"
+    },
+    {
+      "id": 59,
+      "name": "梅州",
+      "latitude": 24.266,
+      "longitude": 116.095,
+      "province": "广东"
+    },
+    {
+      "id": 60,
+      "name": "深圳",
+      "latitude": 22.6393,
+      "longitude": 113.8107,
+      "province": "广东"
+    },
+    {
+      "id": 61,
+      "name": "湛江",
+      "latitude": 21.2144,
+      "longitude": 110.358,
+      "province": "广东"
+    },
+    {
+      "id": 62,
+      "name": "珠海",
+      "latitude": 22.011,
+      "longitude": 113.376,
+      "province": "广东"
+    },
+    {
+      "id": 63,
+      "name": "韶关",
+      "latitude": 24.978,
+      "longitude": 113.605,
+      "province": "广东"
+    },
+    {
+      "id": 64,
+      "name": "北海",
+      "latitude": 21.5394,
+      "longitude": 109.293,
+      "province": "广西"
+    },
+    {
+      "id": 65,
+      "name": "南宁",
+      "latitude": 22.6083,
+      "longitude": 108.172,
+      "province": "广西"
+    },
+    {
+      "id": 66,
+      "name": "柳州",
+      "latitude": 24.2075,
+      "longitude": 109.391,
+      "province": "广西"
+    },
+    {
+      "id": 67,
+      "name": "桂林",
+      "latitude": 25.2181,
+      "longitude": 110.039,
+      "province": "广西"
+    },
+    {
+      "id": 68,
+      "name": "梧州",
+      "latitude": 23.4568,
+      "longitude": 111.251,
+      "province": "广西"
+    },
+    {
+      "id": 69,
+      "name": "玉林",
+      "latitude": 22.633,
+      "longitude": 110.151,
+      "province": "广西"
+    },
+    {
+      "id": 70,
+      "name": "乌鲁木齐",
+      "latitude": 43.9067,
+      "longitude": 87.4742,
+      "province": "新疆"
+    },
+    {
+      "id": 71,
+      "name": "伊宁",
+      "latitude": 43.9563,
+      "longitude": 81.33,
+      "province": "新疆"
+    },
+    {
+      "id": 72,
+      "name": "博尔塔拉",
+      "latitude": 44.895,
+      "longitude": 82.3,
+      "province": "新疆"
+    },
+    {
+      "id": 73,
+      "name": "吐鲁番",
+      "latitude": 43.0308,
+      "longitude": 89.0987,
+      "province": "新疆"
+    },
+    {
+      "id": 74,
+      "name": "和田",
+      "latitude": 37.0385,
+      "longitude": 79.8649,
+      "province": "新疆"
+    },
+    {
+      "id": 75,
+      "name": "哈密",
+      "latitude": 42.8414,
+      "longitude": 93.6692,
+      "province": "新疆"
+    },
+    {
+      "id": 76,
+      "name": "喀什",
+      "latitude": 39.5429,
+      "longitude": 76.019,
+      "province": "新疆"
+    },
+    {
+      "id": 77,
+      "name": "塔城",
+      "latitude": 46.6725,
+      "longitude": 83.3408,
+      "province": "新疆"
+    },
+    {
+      "id": 78,
+      "name": "库尔勒",
+      "latitude": 41.6978,
+      "longitude": 86.1289,
+      "province": "新疆"
+    },
+    {
+      "id": 79,
+      "name": "库车",
+      "latitude": 41.7181,
+      "longitude": 82.987,
+      "province": "新疆"
+    },
+    {
+      "id": 80,
+      "name": "新源",
+      "latitude": 43.4318,
+      "longitude": 83.378,
+      "province": "新疆"
+    },
+    {
+      "id": 81,
+      "name": "昭苏",
+      "latitude": 43.156,
+      "longitude": 81.13,
+      "province": "新疆"
+    },
+    {
+      "id": 82,
+      "name": "阿克苏",
+      "latitude": 41.2625,
+      "longitude": 80.2917,
+      "province": "新疆"
+    },
+    {
+      "id": 83,
+      "name": "阿勒泰",
+      "latitude": 47.7499,
+      "longitude": 88.0858,
+      "province": "新疆"
+    },
+    {
+      "id": 84,
+      "name": "阿拉尔",
+      "latitude": 40.541,
+      "longitude": 81.263,
+      "province": "新疆"
+    },
+    {
+      "id": 85,
+      "name": "南京",
+      "latitude": 31.742,
+      "longitude": 118.862,
+      "province": "江苏"
+    },
+    {
+      "id": 86,
+      "name": "南通",
+      "latitude": 32.0708,
+      "longitude": 120.976,
+      "province": "江苏"
+    },
+    {
+      "id": 87,
+      "name": "徐州",
+      "latitude": 34.059,
+      "longitude": 117.555,
+      "province": "江苏"
+    },
+    {
+      "id": 88,
+      "name": "扬州",
+      "latitude": 32.5617,
+      "longitude": 119.72,
+      "province": "江苏"
+    },
+    {
+      "id": 89,
+      "name": "无锡",
+      "latitude": 31.4944,
+      "longitude": 120.4294,
+      "province": "江苏"
+    },
+    {
+      "id": 90,
+      "name": "淮安",
+      "latitude": 33.7908,
+      "longitude": 119.125,
+      "province": "江苏"
+    },
+    {
+      "id": 91,
+      "name": "盐城",
+      "latitude": 33.4258,
+      "longitude": 120.204,
+      "province": "江苏"
+    },
+    {
+      "id": 92,
+      "name": "连云港",
+      "latitude": 34.5717,
+      "longitude": 118.873,
+      "province": "江苏"
+    },
+    {
+      "id": 93,
+      "name": "上饶",
+      "latitude": 28.3797,
+      "longitude": 117.964,
+      "province": "江西"
+    },
+    {
+      "id": 94,
+      "name": "九江",
+      "latitude": 29.4769,
+      "longitude": 115.801,
+      "province": "江西"
+    },
+    {
+      "id": 95,
+      "name": "南昌",
+      "latitude": 28.865,
+      "longitude": 115.9,
+      "province": "江西"
+    },
+    {
+      "id": 96,
+      "name": "宜春",
+      "latitude": 27.8025,
+      "longitude": 114.306,
+      "province": "江西"
+    },
+    {
+      "id": 97,
+      "name": "瑞金",
+      "latitude": 25.885,
+      "longitude": 116.034,
+      "province": "江西"
+    },
+    {
+      "id": 98,
+      "name": "赣州",
+      "latitude": 25.853,
+      "longitude": 114.778,
+      "province": "江西"
+    },
+    {
+      "id": 99,
+      "name": "唐山",
+      "latitude": 39.7174,
+      "longitude": 118.002,
+      "province": "河北"
+    },
+    {
+      "id": 100,
+      "name": "石家庄",
+      "latitude": 38.2807,
+      "longitude": 114.696,
+      "province": "河北"
+    },
+    {
+      "id": 101,
+      "name": "邢台",
+      "latitude": 37.1212,
+      "longitude": 114.428,
+      "province": "河北"
+    },
+    {
+      "id": 102,
+      "name": "邯郸",
+      "latitude": 36.5258,
+      "longitude": 114.429,
+      "province": "河北"
+    },
+    {
+      "id": 103,
+      "name": "信阳",
+      "latitude": 32.5406,
+      "longitude": 114.078,
+      "province": "河南"
+    },
+    {
+      "id": 104,
+      "name": "南阳",
+      "latitude": 32.9808,
+      "longitude": 112.615,
+      "province": "河南"
+    },
+    {
+      "id": 105,
+      "name": "安阳",
+      "latitude": 36.109,
+      "longitude": 114.35,
+      "province": "河南"
+    },
+    {
+      "id": 106,
+      "name": "洛阳",
+      "latitude": 34.7411,
+      "longitude": 112.388,
+      "province": "河南"
+    },
+    {
+      "id": 107,
+      "name": "郑州",
+      "latitude": 34.5197,
+      "longitude": 113.841,
+      "province": "河南"
+    },
+    {
+      "id": 108,
+      "name": "丽水",
+      "latitude": 28.562,
+      "longitude": 119.916,
+      "province": "浙江"
+    },
+    {
+      "id": 109,
+      "name": "台州",
+      "latitude": 28.5622,
+      "longitude": 121.429,
+      "province": "浙江"
+    },
+    {
+      "id": 110,
+      "name": "宁波",
+      "latitude": 29.8267,
+      "longitude": 121.4619,
+      "province": "浙江"
+    },
+    {
+      "id": 111,
+      "name": "杭州",
+      "latitude": 30.2361,
+      "longitude": 120.434,
+      "province": "浙江"
+    },
+    {
+      "id": 112,
+      "name": "温州",
+      "latitude": 27.9122,
+      "longitude": 120.852,
+      "province": "浙江"
+    },
+    {
+      "id": 113,
+      "name": "舟山",
+      "latitude": 29.9342,
+      "longitude": 122.362,
+      "province": "浙江"
+    },
+    {
+      "id": 114,
+      "name": "三亚",
+      "latitude": 18.2528,
+      "longitude": 109.5119,
+      "province": "海南"
+    },
+    {
+      "id": 115,
+      "name": "三沙",
+      "latitude": 16.832,
+      "longitude": 112.333,
+      "province": "海南"
+    },
+    {
+      "id": 116,
+      "name": "海口",
+      "latitude": 20.044,
+      "longitude": 110.1983,
+      "province": "海南"
+    },
+    {
+      "id": 117,
+      "name": "琼海",
+      "latitude": 19.14,
+      "longitude": 110.459,
+      "province": "海南"
+    },
+    {
+      "id": 118,
+      "name": "十堰",
+      "latitude": 32.5917,
+      "longitude": 110.908,
+      "province": "湖北"
+    },
+    {
+      "id": 119,
+      "name": "宜昌",
+      "latitude": 30.5565,
+      "longitude": 111.479,
+      "province": "湖北"
+    },
+    {
+      "id": 120,
+      "name": "恩施",
+      "latitude": 30.32,
+      "longitude": 109.485,
+      "province": "湖北"
+    },
+    {
+      "id": 121,
+      "name": "武汉",
+      "latitude": 30.7838,
+      "longitude": 114.2081,
+      "province": "湖北"
+    },
+    {
+      "id": 122,
+      "name": "荆州",
+      "latitude": 30.32,
+      "longitude": 112.233,
+      "province": "湖北"
+    },
+    {
+      "id": 123,
+      "name": "襄阳",
+      "latitude": 32.15,
+      "longitude": 112.291,
+      "province": "湖北"
+    },
+    {
+      "id": 124,
+      "name": "鄂州",
+      "latitude": 30.341,
+      "longitude": 114.774,
+      "province": "湖北"
+    },
+    {
+      "id": 125,
+      "name": "岳阳",
+      "latitude": 29.311,
+      "longitude": 113.279,
+      "province": "湖南"
+    },
+    {
+      "id": 126,
+      "name": "常德",
+      "latitude": 28.9189,
+      "longitude": 111.639,
+      "province": "湖南"
+    },
+    {
+      "id": 127,
+      "name": "张家界",
+      "latitude": 29.103,
+      "longitude": 110.443,
+      "province": "湖南"
+    },
+    {
+      "id": 128,
+      "name": "怀化",
+      "latitude": 27.4411,
+      "longitude": 109.7,
+      "province": "湖南"
+    },
+    {
+      "id": 129,
+      "name": "永州",
+      "latitude": 26.338,
+      "longitude": 111.611,
+      "province": "湖南"
+    },
+    {
+      "id": 130,
+      "name": "衡阳",
+      "latitude": 26.722,
+      "longitude": 112.628,
+      "province": "湖南"
+    },
+    {
+      "id": 131,
+      "name": "邵阳",
+      "latitude": 26.802,
+      "longitude": 110.642,
+      "province": "湖南"
+    },
+    {
+      "id": 132,
+      "name": "郴州",
+      "latitude": 25.753,
+      "longitude": 113.02,
+      "province": "湖南"
+    },
+    {
+      "id": 133,
+      "name": "长沙",
+      "latitude": 28.1892,
+      "longitude": 113.22,
+      "province": "湖南"
+    },
+    {
+      "id": 134,
+      "name": "兰州",
+      "latitude": 36.5152,
+      "longitude": 103.6204,
+      "province": "甘肃"
+    },
+    {
+      "id": 135,
+      "name": "嘉峪关",
+      "latitude": 39.8569,
+      "longitude": 98.341,
+      "province": "甘肃"
+    },
+    {
+      "id": 136,
+      "name": "庆阳",
+      "latitude": 35.7997,
+      "longitude": 107.603,
+      "province": "甘肃"
+    },
+    {
+      "id": 137,
+      "name": "张掖",
+      "latitude": 38.8015,
+      "longitude": 100.675,
+      "province": "甘肃"
+    },
+    {
+      "id": 138,
+      "name": "敦煌",
+      "latitude": 40.1611,
+      "longitude": 94.8092,
+      "province": "甘肃"
+    },
+    {
+      "id": 139,
+      "name": "金昌",
+      "latitude": 38.542,
+      "longitude": 102.348,
+      "province": "甘肃"
+    },
+    {
+      "id": 140,
+      "name": "陇南",
+      "latitude": 33.788,
+      "longitude": 105.797,
+      "province": "甘肃"
+    },
+    {
+      "id": 141,
+      "name": "厦门",
+      "latitude": 24.544,
+      "longitude": 118.127,
+      "province": "福建"
+    },
+    {
+      "id": 142,
+      "name": "泉州",
+      "latitude": 24.7964,
+      "longitude": 118.59,
+      "province": "福建"
+    },
+    {
+      "id": 143,
+      "name": "福州",
+      "latitude": 25.9351,
+      "longitude": 119.663,
+      "province": "福建"
+    },
+    {
+      "id": 144,
+      "name": "拉萨",
+      "latitude": 29.2978,
+      "longitude": 90.9119,
+      "province": "西藏"
+    },
+    {
+      "id": 145,
+      "name": "昌都",
+      "latitude": 30.5536,
+      "longitude": 97.108,
+      "province": "西藏"
+    },
+    {
+      "id": 146,
+      "name": "林芝",
+      "latitude": 29.3033,
+      "longitude": 94.335,
+      "province": "西藏"
+    },
+    {
+      "id": 147,
+      "name": "阿里",
+      "latitude": 32.1,
+      "longitude": 80.053,
+      "province": "西藏"
+    },
+    {
+      "id": 148,
+      "name": "凯里",
+      "latitude": 26.972,
+      "longitude": 107.988,
+      "province": "贵州"
+    },
+    {
+      "id": 149,
+      "name": "安顺",
+      "latitude": 26.2606,
+      "longitude": 105.873,
+      "province": "贵州"
+    },
+    {
+      "id": 150,
+      "name": "毕节",
+      "latitude": 27.2671,
+      "longitude": 105.472,
+      "province": "贵州"
+    },
+    {
+      "id": 151,
+      "name": "贵阳",
+      "latitude": 26.5385,
+      "longitude": 106.8012,
+      "province": "贵州"
+    },
+    {
+      "id": 152,
+      "name": "遵义",
+      "latitude": 27.951,
+      "longitude": 107.691,
+      "province": "贵州"
+    },
+    {
+      "id": 153,
+      "name": "铜仁",
+      "latitude": 27.8833,
+      "longitude": 109.308,
+      "province": "贵州"
+    },
+    {
+      "id": 154,
+      "name": "大连",
+      "latitude": 38.9657,
+      "longitude": 121.539,
+      "province": "辽宁"
+    },
+    {
+      "id": 155,
+      "name": "沈阳",
+      "latitude": 41.64,
+      "longitude": 123.483,
+      "province": "辽宁"
+    },
+    {
+      "id": 156,
+      "name": "营口",
+      "latitude": 40.5425,
+      "longitude": 122.358,
+      "province": "辽宁"
+    },
+    {
+      "id": 157,
+      "name": "万州",
+      "latitude": 30.8017,
+      "longitude": 108.433,
+      "province": "重庆"
+    },
+    {
+      "id": 158,
+      "name": "重庆",
+      "latitude": 29.7192,
+      "longitude": 106.6417,
+      "province": "重庆"
+    },
+    {
+      "id": 159,
+      "name": "安康",
+      "latitude": 32.7086,
+      "longitude": 108.931,
+      "province": "陕西"
+    },
+    {
+      "id": 160,
+      "name": "延安",
+      "latitude": 36.6369,
+      "longitude": 109.554,
+      "province": "陕西"
+    },
+    {
+      "id": 161,
+      "name": "榆林",
+      "latitude": 38.3597,
+      "longitude": 109.59,
+      "province": "陕西"
+    },
+    {
+      "id": 162,
+      "name": "汉中",
+      "latitude": 33.1342,
+      "longitude": 107.206,
+      "province": "陕西"
+    },
+    {
+      "id": 163,
+      "name": "西安",
+      "latitude": 34.4471,
+      "longitude": 108.7516,
+      "province": "陕西"
+    },
+    {
+      "id": 164,
+      "name": "玉树",
+      "latitude": 32.836,
+      "longitude": 97.036,
+      "province": "青海"
+    },
+    {
+      "id": 165,
+      "name": "西宁",
+      "latitude": 36.5275,
+      "longitude": 102.0432,
+      "province": "青海"
+    },
+    {
+      "id": 166,
+      "name": "哈尔滨",
+      "latitude": 45.6234,
+      "longitude": 126.2503,
+      "province": "黑龙江"
+    },
+    {
+      "id": 167,
+      "name": "大兴安岭",
+      "latitude": 50.371,
+      "longitude": 124.118,
+      "province": "黑龙江"
+    },
+    {
+      "id": 168,
+      "name": "漠河",
+      "latitude": 52.9128,
+      "longitude": 122.43,
+      "province": "黑龙江"
+    },
+    {
+      "id": 169,
+      "name": "鸡西",
+      "latitude": 45.306,
+      "longitude": 130.969,
+      "province": "黑龙江"
+    }
+  ],
+  "msg": "ok"
+}

@@ -7,23 +7,90 @@
   },
   "pages": [
     {
-      "path": "pages/login/login",
+      "path": "pages/quick-search/index",
       "style": {
-        "navigationBarTitleText": "登录",
+        "navigationBarTitleText": "随心快查",
         "navigationStyle": "custom"
       }
     },
     {
-      "path": "pages/index/index",
+      "path": "pages/precise-search/index",
       "style": {
-        "navigationBarTitleText": "首页"
+        "navigationBarTitleText": "随心精查",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/transfer-assistant/index",
+      "style": {
+        "navigationBarTitleText": "中转助手",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/route-list/index",
+      "style": {
+        "navigationBarTitleText": "线路列表",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/news/index",
+      "style": {
+        "navigationBarTitleText": "上新推文",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/about/index",
+      "style": {
+        "navigationBarTitleText": "关于",
+        "navigationStyle": "custom"
       }
     }
   ],
+  "tabBar": {
+    "color": "#8a8a8a",
+    "selectedColor": "#df2323",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/quick-search/index",
+        "text": "随心快查",
+        "iconPath": "static/tabs/seal-unselect.png",
+        "selectedIconPath": "static/tabs/seal-selected.png"
+      },
+      {
+        "pagePath": "pages/precise-search/index",
+        "text": "随心精查",
+        "iconPath": "static/tabs/main-unselect.png",
+        "selectedIconPath": "static/tabs/main-selected.png"
+      },
+      {
+        "pagePath": "pages/transfer-assistant/index",
+        "text": "中转助手",
+        "iconPath": "static/tabs/seal-unselect.png",
+        "selectedIconPath": "static/tabs/seal-selected.png"
+      },
+      {
+        "pagePath": "pages/news/index",
+        "text": "上新推文",
+        "iconPath": "static/tabs/main-unselect.png",
+        "selectedIconPath": "static/tabs/main-selected.png"
+      },
+      {
+        "pagePath": "pages/about/index",
+        "text": "关于",
+        "iconPath": "static/tabs/seal-unselect.png",
+        "selectedIconPath": "static/tabs/seal-selected.png"
+      }
+    ]
+  },
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "uni-app 模板",
-    "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#f7f8fa"
+    "navigationBarTitleText": "中转易",
+    "navigationBarBackgroundColor": "#f81c16",
+    "backgroundColor": "#eceff5"
   }
 }
